@@ -5,6 +5,7 @@ mod egress;
 mod epoch;
 mod error;
 mod identity;
+mod logging;
 mod provider;
 
 pub use config::{Config, SecretString};
@@ -12,6 +13,10 @@ pub use egress::EgressSnapshot;
 pub use epoch::ZeroClockEpoch;
 pub use error::{ConfigField, Error};
 pub use identity::SessionIdentity;
+pub use logging::{
+    log_event, Component, FieldSensitivity, InMemoryLogSink, LogEvent, LogField, LogLevel,
+    LogOutcome,
+};
 pub use provider::Provider;
 
 /// Current ADAD workspace version.

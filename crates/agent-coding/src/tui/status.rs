@@ -6,7 +6,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use crate::DEFAULT_LOCAL_MODEL;
+use crate::{DaemonHealth, HealthReport, DEFAULT_LOCAL_MODEL};
 
 use super::{escape_terminal_text, Theme, ThemeKind};
 
@@ -15,24 +15,8 @@ pub enum StatusEvent {
     Render,
     SelectTheme(ThemeKind),
     SetStatus(StatusSnapshot),
+    SetHealth(HealthReport),
     Error(Error),
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DaemonHealth {
-    Ready,
-    Down,
-    Unknown,
-}
-
-impl DaemonHealth {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Ready => "ready",
-            Self::Down => "down",
-            Self::Unknown => "unknown",
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -44,6 +28,7 @@ pub struct StatusSnapshot {
     pub git: DaemonHealth,
     pub killswitch: DaemonHealth,
     pub dms_hours_remaining: Option<u32>,
+    pub vault_lock_minutes_remaining: Option<u32>,
     pub provider: String,
     pub model: String,
 }
@@ -58,9 +43,75 @@ impl Default for StatusSnapshot {
             git: DaemonHealth::Unknown,
             killswitch: DaemonHealth::Unknown,
             dms_hours_remaining: None,
+            vault_lock_minutes_remaining: None,
             provider: "local".to_owned(),
             model: DEFAULT_LOCAL_MODEL.to_owned(),
         }
+    }
+}
+
+impl StatusSnapshot {
+    #[must_use]
+    pub fn from_health_report(
+        report: HealthReport,
+        provider: impl Into<String>,
+        model: impl Into<String>,
+    ) -> Self {
+        Self {
+            tor: report.tor,
+            wireguard: report.wireguard,
+            llama_server: report.llama_server,
+            monero: report.monero,
+            git: report.git,
+            killswitch: report.killswitch,
+            dms_hours_remaining: report.dms_hours_remaining,
+            vault_lock_minutes_remaining: None,
+            provider: provider.into(),
+            model: model.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StatusAlert {
+    KillswitchFired,
+    TunnelDown,
+    DmsNearExpiry,
+    VaultLockImminent,
+}
+
+impl StatusAlert {
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::KillswitchFired => "Alert: KILLSWITCH FIRED - all egress dropped",
+            Self::TunnelDown => "Alert: TUNNEL DOWN - fallback API egress blocked",
+            Self::DmsNearExpiry => "Alert: DMS NEAR EXPIRY - access vault or prepare wipe",
+            Self::VaultLockImminent => "Alert: VAULT LOCK IMMINENT - save and seal soon",
+        }
+    }
+}
+
+impl StatusSnapshot {
+    #[must_use]
+    pub fn alerts(&self) -> Vec<StatusAlert> {
+        let mut alerts = Vec::new();
+        if self.killswitch == DaemonHealth::Down {
+            alerts.push(StatusAlert::KillswitchFired);
+        }
+        if self.wireguard == DaemonHealth::Down {
+            alerts.push(StatusAlert::TunnelDown);
+        }
+        if self.dms_hours_remaining.is_some_and(|hours| hours <= 2) {
+            alerts.push(StatusAlert::DmsNearExpiry);
+        }
+        if self
+            .vault_lock_minutes_remaining
+            .is_some_and(|minutes| minutes <= 15)
+        {
+            alerts.push(StatusAlert::VaultLockImminent);
+        }
+        alerts
     }
 }
 
@@ -82,6 +133,14 @@ pub fn run_status_headless(events: &[StatusEvent]) -> Result<StatusFrameLog, Err
             StatusEvent::SelectTheme(kind) => state.theme = Theme::select(*kind),
             StatusEvent::SetStatus(status) => {
                 state.status = status.clone();
+                state.error_message = None;
+            }
+            StatusEvent::SetHealth(report) => {
+                state.status = StatusSnapshot::from_health_report(
+                    report.clone(),
+                    "local",
+                    DEFAULT_LOCAL_MODEL,
+                );
                 state.error_message = None;
             }
             StatusEvent::Error(error) => state.error_message = Some(error.user_message()),
@@ -139,6 +198,10 @@ impl StatusState {
             format!("Model: {}", escape_terminal_text(&self.status.model)),
         ];
 
+        for alert in self.status.alerts() {
+            lines.push(alert.label().to_owned());
+        }
+
         if let Some(error) = &self.error_message {
             lines.push(format!("Alert: ERROR - {error}"));
         }
@@ -159,7 +222,7 @@ fn render_status(frame: &mut Frame<'_>, state: &StatusState) {
         .map(|(index, line)| {
             if index == 0 {
                 Line::styled(line, state.theme.title_style())
-            } else if line.starts_with("Alert: ERROR") {
+            } else if line.starts_with("Alert: ") {
                 Line::styled(line, state.theme.error_style())
             } else {
                 Line::styled(line, state.theme.body_style())

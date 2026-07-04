@@ -108,6 +108,7 @@ fn status_monitor_reflects_mocked_daemon_states_including_unknown() {
         git: DaemonHealth::Ready,
         killswitch: DaemonHealth::Ready,
         dms_hours_remaining: Some(72),
+        vault_lock_minutes_remaining: None,
         provider: "local".to_owned(),
         model: "qwen2.5-coder".to_owned(),
     };
