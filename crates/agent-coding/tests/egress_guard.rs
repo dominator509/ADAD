@@ -1,8 +1,10 @@
 #[path = "support/mock_inference.rs"]
 mod mock_inference;
 
-use adad_core::Error;
-use agent_coding::{ChatMessage, EgressMode, OpenAiCompatClient, StaticEgressState};
+use adad_core::{EgressSnapshot, Error};
+use agent_coding::{
+    ChatMessage, EgressMode, LeakguardEgressState, OpenAiCompatClient, StaticEgressState,
+};
 use mock_inference::MockInferenceServer;
 
 #[test]
@@ -36,4 +38,21 @@ fn local_provider_is_unaffected_by_inactive_fallback_tunnel() {
 
     assert_eq!(completion.content, "mock completion");
     assert_eq!(server.requests().len(), 1);
+}
+
+#[test]
+fn fallback_request_uses_leakguard_snapshot_before_socket_write() {
+    let server = MockInferenceServer::start();
+    let leakguard_state =
+        LeakguardEgressState::new(EgressSnapshot::new(true, true, true, false, true));
+    let client = OpenAiCompatClient::new(server.base_url("openai"), "sk-test", "model")
+        .with_egress_mode(EgressMode::Fallback)
+        .with_egress_state(leakguard_state);
+
+    let error = client
+        .chat(&[ChatMessage::user("blocked by ipv6 posture")])
+        .expect_err("leakguard snapshot should block unsafe fallback");
+
+    assert_eq!(error, Error::EgressBlocked);
+    assert!(server.requests().is_empty());
 }

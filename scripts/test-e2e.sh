@@ -5,8 +5,8 @@
 # networking phases.
 set -eu
 cd "$(dirname "$0")/.."
-if [ -x tests/e2e/run-leak-battery.sh ]; then
-  tests/e2e/run-leak-battery.sh
+if [ -f tests/e2e/run-leak-battery.sh ]; then
+  sh tests/e2e/run-leak-battery.sh
   echo "e2e tests: ok"
 else
   echo "ERROR: tests/e2e/run-leak-battery.sh not found." >&2

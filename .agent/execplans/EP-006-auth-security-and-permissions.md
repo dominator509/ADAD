@@ -1,6 +1,6 @@
 ---
 id: EP-006
-status: not-started
+status: complete
 depends_on: [EP-005]
 verify: scripts/verify.sh
 ---
@@ -143,15 +143,15 @@ never wipe a real device. The leak battery (tests/e2e) is the authoritative gate
 8. Wire the real EgressState into the client; author the leak battery; run verify.
 
 ## 10. Validation and Acceptance
-- [ ] Killswitch fail-closed + netlink-drop latency tests pass.
-- [ ] Routing posture test passes (no clearnet/IPv6/discovery; DNS via Tor).
-- [ ] MAC randomization test passes (randomized, not impersonation).
-- [ ] git-spoof proves stable pseudonym + stripped metadata (no rotation).
-- [ ] metafuse scrubbing test passes.
-- [ ] DMS wipes header on image at expiry; clock-freeze proven ineffective;
+- [x] Killswitch fail-closed + netlink-drop latency tests pass.
+- [x] Routing posture test passes (no clearnet/IPv6/discovery; DNS via Tor).
+- [x] MAC randomization test passes (randomized, not impersonation).
+- [x] git-spoof proves stable pseudonym + stripped metadata (no rotation).
+- [x] metafuse scrubbing test passes.
+- [x] DMS wipes header on image at expiry; clock-freeze proven ineffective;
       panic path tested; no real device touched.
-- [ ] Egress guard backed by real leakguard state.
-- [ ] `scripts/verify.sh` → `verify: ok`
+- [x] Egress guard backed by real leakguard state.
+- [x] `scripts/verify.sh` → `verify: ok`
 
 ## 11. Idempotence and Recovery
 Firewall/routing apply idempotently (flush-then-set). Tests use images/network
@@ -159,24 +159,112 @@ namespaces, never real devices/interfaces where destructive. DMS/panic tests are
 sandboxed. Re-runs are clean.
 
 ## 12. Progress
-- [ ] M1 — killswitch state machine
-- [ ] M2 — netlink monitor + latency
-- [ ] M3 — routing posture (Tor/WG/IPv6-off/no-discovery)
-- [ ] M4 — MAC randomization
-- [ ] M5 — git-spoof stable pseudonym
-- [ ] M6 — metafuse scrubbing
-- [ ] M7 — DMS (Tor-NTP) + panic + clock-freeze resistance
-- [ ] M8 — wire egress guard + leak battery
-- [ ] verify + status set to complete
+- [x] M1 — killswitch state machine
+- [x] M2 — netlink monitor + latency
+- [x] M3 — routing posture (Tor/WG/IPv6-off/no-discovery)
+- [x] M4 — MAC randomization
+- [x] M5 — git-spoof stable pseudonym
+- [x] M6 — metafuse scrubbing
+- [x] M7 — DMS (Tor-NTP) + panic + clock-freeze resistance
+- [x] M8 — wire egress guard + leak battery
+- [x] verify + status set to complete
 
 ## 13. Surprises & Discoveries
 (Record netlink/fuser/nftables API specifics; Tor-NTP source; any posture edge
 cases. Record failed hypotheses so later sessions don't repeat them.)
+- M1: `leakguard` was still binary-only at plan start. A standard library
+  surface was required so the killswitch/firewall state machine could be tested
+  with `cargo test -p leakguard --lib`.
+- M1: The in-memory model treats `Unknown` tunnel health as unsafe and collapses
+  to DROP ALL, matching the fail-closed rule instead of guessing a permissive
+  posture.
+- M2: The netlink milestone is implemented as a simulated event boundary for
+  now: `NetlinkEvent` maps interface/tunnel changes into the M1 killswitch
+  state machine and measures reaction latency without opening a host netlink
+  socket.
+- M3: Routing is currently asserted as a pure posture model: general traffic
+  routes to Tor, API traffic routes to WireGuard, DNS routes via Tor, IPv6 is
+  disabled, and mDNS/SSDP/NetBIOS/direct-DNS classes are blocked by the
+  firewall model.
+- M4: MAC randomization is modeled from per-session entropy and interface name
+  without changing any real host interface. The resulting address has the local
+  bit set, multicast bit clear, changes across sessions, and is stable within a
+  session.
+- M5: `git-spoof` was still binary-only at plan start. A standard library
+  surface plus rewrite model was required so stable pseudonym behavior could be
+  tested without invoking real git.
+- M6: `metafuse` was still binary-only at plan start. The first implementation
+  adds a pure metadata presentation model instead of a host FUSE mount: it
+  rewrites owner ids, replaces real timestamps with deterministic session
+  scrubbed values, and removes EXIF tags before presentation.
+- M7: DMS is implemented as an image-only state machine. `TorNtpTime` is the
+  authority for expiry, local clock values are accepted only to prove they do
+  not influence the deadline, and the only wipe target type is an in-memory
+  `LuksHeaderImage`.
+- M8: The client now consumes an `adad_core::EgressSnapshot` produced by
+  leakguard's routing/firewall posture instead of importing leakguard directly
+  into `agent-coding`. This preserves the cross-tool ownership boundary while
+  giving the fallback guard real leakguard state.
+- M8: The leak battery harness exists and passes at the model level. Because
+  `build/adad.img` does not exist yet, on-image QEMU assertions are explicitly
+  reported as pending EP-009/EP-010 work rather than silently claimed.
 
 ## 14. Decision Log
 (Record firewall backend chosen (e.g. nftables), killswitch latency target,
 Tor-NTP mechanism, sequencing of the on-image battery to EP-009/EP-010.)
+- M1: Implemented only a pure firewall posture model, not host nftables. The
+  posture defaults to DROP, permits Tor and optionally WireGuard when explicitly
+  healthy, and never permits `Other` egress. Real firewall backend selection is
+  deferred to M3.
+- M1: `Killswitch::arm` requires Tor to be active. WireGuard may be inactive for
+  Tor-only default posture, but `Unknown` is treated as unsafe and triggers
+  DROP ALL. Interface-down, tunnel-loss, and ambiguous events all force DROP
+  ALL.
+- M2: Set the first killswitch reaction target to 250 ms in
+  `DROP_ALL_TARGET_LATENCY`. The simulated drop tests assert both interface
+  down and tunnel loss transition to DROP ALL within that target.
+- M3: Real nftables/routing assets are deferred; this milestone adds the
+  leak-free policy model and tests without touching host firewall/routing state.
+  A posture that could permit direct DNS, IPv6, local discovery, or generic
+  clearnet returns `Error::Killswitch`.
+- M4: `mac::randomize(iface, SessionSeed)` returns a `MacAssignment` model. A
+  future Linux/on-image backend can apply that assignment to the interface, but
+  EP-006 M4 deliberately avoids host mutation in agent tests.
+- M5: `git_spoof::rewrite` uses `adad_core::SessionIdentity` directly,
+  normalizes both author and committer timestamps to `2000-01-01T00:00:00Z`,
+  and proves the same persona identity is reused across commits rather than
+  rotated.
+- M6: Real `fuser` integration is deferred to the Linux/on-image backend. The
+  tested contract lives in `metafuse::scrub_metadata`, so future `getattr` and
+  xattr handling can call the same code without reimplementing privacy rules.
+- M7: The panic path is tested through `panic_wipe`, which zeros modeled RAM
+  secrets and wipes the image header. Real `kexec` integration remains a
+  Linux/on-image backend concern; no path or block-device wipe API was added in
+  EP-006.
+- M8: Added `EgressSnapshot` to `adad-core` as a shared pure data contract. This
+  is an extra file outside the initial list, justified because it avoids a
+  direct `agent-coding` to `leakguard` dependency and keeps the architecture's
+  tool-crate boundary intact.
+- M8: `scripts/test-e2e.sh` and `scripts/verify.sh` now invoke the harness via
+  `sh` when the file exists rather than requiring an executable bit. This keeps
+  the E2E gate reliable on Windows/Git-Bash while preserving the same command
+  names and success lines.
+- M8: Full verify required one unsandboxed rerun because `cargo audit` needs to
+  lock/update `C:\Users\domin\.cargo\advisory-db`, which is outside the
+  workspace sandbox. The rerun completed with `verify: ok`.
 
 ## 15. Outcomes & Retrospective
-(Filled at completion — the security posture is the project's crux; document
-residual risks explicitly.)
+- EP-006 completed the model-level security core: fail-closed killswitch,
+  simulated netlink latency, Tor/WireGuard/no-leak routing posture, MAC
+  randomization, stable git pseudonym rewriting, metafuse metadata scrubbing,
+  DMS image-header wipe with local-clock-freeze resistance, panic wipe model,
+  leakguard-backed fallback egress guard, and the first leak battery harness.
+- No real block device, real LUKS vault, real network interface, real `kexec`,
+  real Tor NTP query, or real firewall/routing table was touched. Destructive
+  behavior is image-only in tests.
+- Remaining risks: host nftables/netlink/FUSE/kexec/Tor-NTP backends are still
+  Linux/on-image work; `build/adad.img` is not present yet, so the leak battery
+  reports QEMU/on-image assertions as pending EP-009/EP-010 work; static-musl
+  verification and smoke execution were skipped on `MSYS_NT-10.0-19045` and
+  remain Linux-authoritative.
+- `scripts/verify.sh` passed on 2026-07-03 with `verify: ok`.

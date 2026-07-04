@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+# Leak-test battery entrypoint. Until EP-009 produces a bootable ADAD image, this
+# runs the model-level leak assertions and records the on-image battery as pending.
+set -eu
+cd "$(dirname "$0")/../.."
+
+sh tests/e2e/assert-leakguard-model.sh
+sh tests/e2e/assert-agent-egress-guard.sh
+
+if [ ! -f build/adad.img ]; then
+  echo "leak battery: on-image assertions pending (build/adad.img not present; EP-009/EP-010 will run QEMU battery)"
+  echo "leak battery: ok (model-level)"
+  exit 0
+fi
+
+if [ ! -x tests/os/run-qemu-leak-battery.sh ]; then
+  echo "ERROR: build/adad.img exists, but tests/os/run-qemu-leak-battery.sh is not available." >&2
+  echo "EP-009/EP-010 must provide the booted-image leak runner before image e2e can pass." >&2
+  exit 1
+fi
+
+tests/os/run-qemu-leak-battery.sh build/adad.img
+echo "leak battery: ok"

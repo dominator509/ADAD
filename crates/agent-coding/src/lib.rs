@@ -11,7 +11,8 @@ pub use agent_loop::{
     ToolCall, ToolExecutor, ToolRun,
 };
 pub use client::{
-    ChatMessage, Completion, EgressMode, EgressState, OpenAiCompatClient, StaticEgressState,
+    ChatMessage, Completion, EgressMode, EgressState, LeakguardEgressState, OpenAiCompatClient,
+    StaticEgressState,
 };
 pub use execution::{ExecutionRegistry, ToolDescriptor, ToolSurface};
 pub use mcp::{

@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use adad_core::Error;
+use adad_core::{EgressSnapshot, Error};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -79,6 +79,29 @@ impl StaticEgressState {
 impl EgressState for StaticEgressState {
     fn fallback_tunnel_active(&self) -> bool {
         self.fallback_tunnel_active
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LeakguardEgressState {
+    snapshot: EgressSnapshot,
+}
+
+impl LeakguardEgressState {
+    #[must_use]
+    pub fn new(snapshot: EgressSnapshot) -> Self {
+        Self { snapshot }
+    }
+
+    #[must_use]
+    pub fn snapshot(self) -> EgressSnapshot {
+        self.snapshot
+    }
+}
+
+impl EgressState for LeakguardEgressState {
+    fn fallback_tunnel_active(&self) -> bool {
+        self.snapshot.leak_free_fallback_ready()
     }
 }
 

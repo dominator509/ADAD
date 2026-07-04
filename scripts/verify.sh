@@ -16,7 +16,7 @@ scripts/security-check.sh
 scripts/dependency-audit.sh
 scripts/smoke-test.sh
 # E2E leak battery runs only when its harness exists (post EP-005/006).
-if [ -x tests/e2e/run-leak-battery.sh ]; then
+if [ -f tests/e2e/run-leak-battery.sh ]; then
   scripts/test-e2e.sh
 else
   echo "verify: (e2e leak battery skipped - harness not present yet)"
