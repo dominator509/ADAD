@@ -14,6 +14,7 @@ pub struct MockSsh {
 }
 
 impl MockSsh {
+    #[allow(dead_code)]
     pub fn success(stdout: impl Into<String>) -> Self {
         Self {
             calls: Vec::new(),

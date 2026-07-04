@@ -49,6 +49,22 @@
 - Critical-flow regressions (killswitch, DMS, no-clearnet) are never allowed to
   be skipped or `#[ignore]`-d.
 
+## Flaky test policy
+- Randomness MUST be deterministic in tests: use fixed seeds or typed test
+  fixtures, never ambient host entropy.
+- Time-sensitive tests MUST use model clocks, mock transports, or bounded local
+  timers with explicit assertions. Do not sleep to "wait out" a race when a
+  deterministic state transition can be modeled.
+- Network/provider/wallet/VPS tests MUST use local mocks or pure transports.
+  Real remotes, real wallets, and real VPS targets remain STOP conditions.
+- A flaky failure is not fixed by `#[ignore]`, retries, or loosening assertions.
+  First make the input deterministic; if the root cause is external host state,
+  document the host requirement and keep the test skipped only by the existing
+  explicit runtime-skip guard.
+- Security-critical tests (`regression_*`, `failure_*`, leak battery, DMS,
+  killswitch, egress guard, vault boundary) MUST NOT be quarantined. A
+  reproducible failure is a finding and must stay visible until fixed.
+
 ## Performance test rules
 - Inference throughput smoke: measure tok/s against a tiny GGUF and assert it is
   within the documented band for the tier (see PROJECT_BRIEF metrics). Run in

@@ -54,11 +54,12 @@ impl MockInferenceServer {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
                         if let Some(request) = read_request(&mut stream) {
+                            let streaming = request.body["stream"].as_bool().unwrap_or(false);
                             thread_requests
                                 .lock()
                                 .expect("request log is available")
                                 .push(request);
-                            write_response(&mut stream);
+                            write_response(&mut stream, streaming);
                         }
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -169,8 +170,15 @@ fn parse_request(buffer: &[u8], header_end: usize) -> Option<RecordedRequest> {
     })
 }
 
-fn write_response(stream: &mut TcpStream) {
-    let body = r#"{"id":"mock","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"mock completion"},"finish_reason":"stop"}]}"#;
+fn write_response(stream: &mut TcpStream, streaming: bool) {
+    let body = if streaming {
+        "data: {\"choices\":[{\"delta\":{\"content\":\"mock \"}}]}\n\
+         data: {\"choices\":[{\"delta\":{\"content\":\"stream\"}}]}\n\
+         data: [DONE]\n"
+            .to_owned()
+    } else {
+        r#"{"id":"mock","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"mock completion"},"finish_reason":"stop"}]}"#.to_owned()
+    };
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
         body.len(),
