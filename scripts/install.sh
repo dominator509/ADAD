@@ -17,12 +17,12 @@ rustup target add x86_64-unknown-linux-musl
 # Host tooling required by later phases. Fail loud if absent; do NOT auto-apt
 # in an agent session without permission (see AGENTS.md production data rules).
 missing=""
-for t in qemu-system-x86_64 mksquashfs lb; do
+for t in qemu-system-x86_64 mksquashfs lb cryptsetup losetup mkfs.ext4 mount umount truncate; do
   command -v "$t" >/dev/null 2>&1 || missing="$missing $t"
 done
 if [ -n "$missing" ]; then
   echo "install: host tools missing:$missing" >&2
-  echo "install: on Debian: sudo apt install qemu-system-x86 squashfs-tools live-build" >&2
+  echo "install: on Debian: sudo apt install qemu-system-x86 squashfs-tools live-build cryptsetup util-linux e2fsprogs coreutils" >&2
   echo "install: install them, then re-run. (Agent: this is a STOP if apt is unavailable.)" >&2
   exit 1
 fi

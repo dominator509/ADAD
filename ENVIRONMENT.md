@@ -6,6 +6,10 @@
 | rustup + cargo | stable (1.75+) | build the Rust workspace |
 | musl target | `x86_64-unknown-linux-musl` | static core binaries |
 | cargo-audit | latest | dependency vuln scan |
+| cryptsetup | current | LUKS2 vault create/unlock/lock lifecycle in EP-003 |
+| util-linux (`losetup`, `mount`, `umount`) | current | loopback devices + filesystem mount cycle in EP-003 |
+| e2fsprogs (`mkfs.ext4`) | current | format the vault filesystem in EP-003 tests |
+| coreutils (`truncate`) | current | create sparse vault images in EP-003 tests |
 | live-build (`lb`) | Debian current | assemble the bootable image (EP-009) |
 | squashfs-tools | current | SquashFS for the live image |
 | qemu-system-x86 | current | OS boot + leak-battery testing |
@@ -48,7 +52,7 @@ shutdown. Never written to host disk, never logged, never committed.
 ## Local development setup
 1. Install rustup; `rustup target add x86_64-unknown-linux-musl`.
 2. `cargo install cargo-audit`.
-3. Install host tools (`live-build`, `squashfs-tools`, `qemu-system-x86`).
+3. Install host tools (`cryptsetup`, `util-linux`, `e2fsprogs`, `coreutils`, `live-build`, `squashfs-tools`, `qemu-system-x86`).
 4. `scripts/preflight.sh` then `scripts/install.sh`.
 
 ## Local database setup
@@ -56,7 +60,10 @@ Not applicable (no database).
 
 ## Test environment setup
 Loopback LUKS images + QEMU + mock servers, all created at test time. No real
-devices or remotes. A tiny GGUF is used for inference tests.
+devices or remotes. EP-003 vault tests require a Linux host that already
+provides `cryptsetup`, `losetup`, `mkfs.ext4`, `mount`, `umount`, and
+`truncate`; agents do not install them in-session. A tiny GGUF is used for
+inference tests.
 
 ## Staging environment setup
 "Staging" = a QEMU VM booting the built image with a monitored NIC/disk. No
