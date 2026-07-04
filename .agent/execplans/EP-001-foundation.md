@@ -132,6 +132,9 @@ idempotent. A half-created crate is fixed by completing its `Cargo.toml`+`src`.
 - `scripts/smoke-test.sh` printed `smoke test: ok` on Windows, but did not emit
   per-tool lines; the `-x` check does not treat the Linux musl artifacts as
   executable on this host.
+- `scripts/build.sh` had the same host-shape ambiguity for the static-link
+  assertion; on Windows it could build artifacts without explicitly saying the
+  `ldd` check was deferred to Linux.
 - The original integration script used `cargo test --workspace --test '*'`,
   which cargo rejected with `no test target matches pattern '*'`; switching to
   `cargo test --workspace --tests` made the integration gate work for the
@@ -157,6 +160,9 @@ idempotent. A half-created crate is fixed by completing its `Cargo.toml`+`src`.
 - Installed `cargo-audit v0.22.2` per `scripts/dependency-audit.sh`; the final
   verify run required escalation so cargo-audit could update its advisory DB
   under `C:\Users\domin\.cargo`.
+- Tightened `scripts/build.sh` and `scripts/smoke-test.sh` so non-Linux hosts
+  report explicit skips while Linux CI remains the authoritative environment for
+  musl execution and static-link verification.
 
 ## 15. Outcomes & Retrospective
 - Shipped a dependency-free Rust workspace with `adad-core` plus eight skeleton
@@ -164,6 +170,6 @@ idempotent. A half-created crate is fixed by completing its `Cargo.toml`+`src`.
   lifecycle script fixes needed for `scripts/verify.sh`.
 - All EP-001 acceptance gates passed locally; final `scripts/verify.sh` printed
   `verify: ok`.
-- Residual risk: Windows smoke validation did not execute per-tool Linux musl
-  binaries because the script's executable check skips them on this host; the
-  static build gate still produced the musl artifacts successfully.
+- Windows hosts now report explicit skips for Linux-only smoke/static checks
+  instead of silently passing them, and Ubuntu CI remains the authoritative
+  environment for actual musl execution and static-link validation.

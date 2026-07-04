@@ -37,11 +37,25 @@ but you should be at the root.
 | Full verify | `scripts/verify.sh` | `verify: ok` |
 | Production readiness | `scripts/production-readiness-check.sh` | `production readiness: ok` |
 
+Host notes:
+- `scripts/build.sh` performs the actual static-link check on Linux. On
+  non-Linux hosts it prints an explicit skip line and relies on Linux CI for the
+  authoritative static assertion.
+- `scripts/smoke-test.sh` executes the musl binaries on Linux. On non-Linux
+  hosts it prints an explicit skip line instead of silently passing without
+  execution.
+
 ## Local development commands
 
+- Apply Rust formatting after `scripts/format-check.sh` reports diffs:
+  `cargo fmt --all`
+  (shape confirmed by `scripts/format-check.sh`, which runs `cargo fmt --all --check`)
 - Run a core tool locally (after build):
   `target/x86_64-unknown-linux-musl/release/<tool> --help`
 - Run one crate's tests only: `cargo test -p <crate-name>`
+- Fetch the historical claw-code diagnostic snapshot:
+  `git clone --depth 1 https://github.com/ultraworkers/claw-code.git build/vendor-src/claw-code`
+  (used for BLK-001 / ADR-009 evidence; not part of the active MCP foundation path)
 - Run the local model server (llama.cpp), used by agent-coding integration
   tests: `llama-server --model <path-to-gguf> --host 127.0.0.1 --port 8080`
   (OpenAI-compatible endpoint at `/v1/chat/completions`). Confirm exact flags

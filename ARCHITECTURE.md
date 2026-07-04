@@ -20,8 +20,8 @@ ADAD is two things shipped together:
      epoch (no host timestamp leakage).
    - `leakguard-rs` — stateful killswitch; netlink interface monitor; fail-closed
      firewall.
-   - `agent-coding-rs` — local-first AI coding harness (vendors claw-code's MCP
-     + tool-exec crates; owns the control loop and provider client).
+   - `agent-coding-rs` — local-first AI coding harness (uses the official MCP
+     Rust SDK; owns tool execution, the control loop, and the provider client).
    - `xmr-wallet-rs` — Monero wallet ops via `monero-wallet-rpc` over Tor.
    - `vps-deploy-rs` — SSH provisioner over Tor; deploys Forgejo hidden service.
    - `persona-rs` — session identity (the pseudonym used by git-spoof + metafuse).
@@ -44,9 +44,6 @@ ADAD is two things shipped together:
     metafuse/                # metafuse-rs
     git-spoof/               # git-spoof-rs
     adad-core/               # shared types, config, error taxonomy (no I/O)
-  vendor/
-    claw-mcp/                # pinned vendored claw-code MCP crate (EP-002)
-    claw-tools/              # pinned vendored claw-code tool-exec crate (EP-002)
   live-build/                # Debian-Live recipe, hooks, package lists (EP-009)
   tests/
     os/                      # QEMU boot smoke harness
@@ -61,15 +58,16 @@ ADAD is two things shipped together:
   filesystem, NO process spawning. Everything else may depend on it.
 - **Tool crates** (`forge`, `leakguard`, ...) — own their domain and its I/O.
   Each is a binary crate plus a library module for its testable logic.
-- **`vendor/claw-*`** — third-party, pinned, treated as frozen. Only
-  `agent-coding` imports them.
+- **`agent-coding` MCP layer** — the only crate allowed to depend on official
+  MCP protocol/runtime crates. Tool execution, naming, and control flow stay
+  ADAD-owned in-tree.
 - **`live-build/`** — OS assembly. Consumes the release binaries; contains no
   Rust logic.
 
 ## Dependency rules (concrete)
 - Any crate may import `adad-core`. `adad-core` must import NO other ADAD crate.
-- Only `agent-coding` may import `vendor/claw-mcp` or `vendor/claw-tools`. No
-  other crate may depend on the vendored crates.
+- Only `agent-coding` may depend on MCP protocol/runtime crates such as `rmcp`.
+  No other crate may carry MCP transport/runtime dependencies.
 - Tool crates must NOT import each other directly. Cross-tool interaction goes
   through `adad-core` types or through process/IPC boundaries defined in a spec.
   (Example: `git-spoof` reads the current identity from `persona` via a
@@ -80,8 +78,9 @@ ADAD is two things shipped together:
 ## Import rules
 - No `use` of a symbol you have not confirmed exists in the target crate.
 - No wildcard re-exports across tool crates.
-- Vendored crates are imported by path in the workspace `Cargo.toml`, pinned to
-  a recorded upstream commit; they are never fetched live during build.
+- External protocol dependencies must be pinned in `Cargo.toml`/`Cargo.lock`.
+  ADAD-owned execution logic lives in-tree and is reviewed like first-party
+  code.
 
 ## Runtime flow (agent coding, the core loop)
 1. `agent-coding-rs` loads config from the vault (provider, base URL, model).
@@ -90,8 +89,8 @@ ADAD is two things shipped together:
    - **openai-compatible fallback:** a configured base URL, over WireGuard.
    - **venice fallback:** `https://api.venice.ai/api/v1`, over WireGuard,
      **private models only** unless config explicitly opts into anonymized.
-3. The control loop (ADAD-owned) plans/acts using the vendored tool-exec engine
-   and MCP integration, executing tools in the workspace.
+3. The control loop (ADAD-owned) plans/acts using an in-tree execution engine
+   and an official MCP protocol layer, executing tools in the workspace.
 4. All egress is subject to `leakguard-rs`: local traffic to `llama-server`
    stays on loopback; any API traffic is forced through the WireGuard interface;
    everything else is Tor or dropped.
@@ -164,7 +163,7 @@ ADAD is two things shipped together:
 1. No component writes to host internal storage. Ever.
 2. No clearnet egress. No IPv6. No DNS leak. No local-discovery chatter.
 3. All core binaries are static musl.
-4. Only `agent-coding` depends on vendored claw-code crates.
+4. Only `agent-coding` depends on MCP protocol/runtime crates.
 5. Inference goes only through `OpenAiCompatClient`; local is the default.
 6. There is exactly one session identity, owned by `persona-rs`, stable per
    session (not rotated per commit).
@@ -205,8 +204,8 @@ pinned docs, add integration tests with a mock, and record an ADR.
 - [ ] No new host-disk write path introduced.
 - [ ] No new egress path bypasses `leakguard-rs`; no clearnet/IPv6/DNS leak.
 - [ ] Core binaries still build as static musl.
-- [ ] No tool crate imports another tool crate; only `agent-coding` imports
-      vendored crates.
+- [ ] No tool crate imports another tool crate; only `agent-coding` imports MCP
+      protocol/runtime crates.
 - [ ] Inference still flows through `OpenAiCompatClient`, local by default.
 - [ ] Session identity still single, stable, owned by `persona-rs`.
 - [ ] Killswitch remains fail-closed.

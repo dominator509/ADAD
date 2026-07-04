@@ -11,6 +11,13 @@ if [ ! -f Cargo.toml ]; then
 fi
 cargo build --workspace --release --target x86_64-unknown-linux-musl
 
+host_os=$(uname -s 2>/dev/null || echo unknown)
+if [ "$host_os" != "Linux" ]; then
+  echo "build: static verification skipped on host '$host_os'; Linux CI is authoritative"
+  echo "build: ok"
+  exit 0
+fi
+
 # Verify the binaries really are static (no NEEDED entries). Guards the
 # constraint automatically.
 for bin in target/x86_64-unknown-linux-musl/release/*; do
