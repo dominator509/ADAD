@@ -1,0 +1,8 @@
+/target
+/build
+*.img
+*.pass
+vendor/*/target
+.serena/
+.codex/
+.obsidian/

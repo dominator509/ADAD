@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "crates/adad-core",
+    "crates/forge",
+    "crates/leakguard",
+    "crates/agent-coding",
+    "crates/xmr-wallet",
+    "crates/vps-deploy",
+    "crates/persona",
+    "crates/metafuse",
+    "crates/git-spoof",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
