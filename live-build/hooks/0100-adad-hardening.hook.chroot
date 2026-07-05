@@ -1,0 +1,219 @@
+#!/bin/sh
+set -eu
+
+mkdir -p /etc/nftables.d /etc/sysctl.d /etc/tor/torrc.d /usr/local/sbin \
+  /etc/systemd/system /etc/wireguard
+
+cat > /etc/sysctl.d/10-adad-disable-ipv6.conf <<'EOF'
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+
+cat > /etc/nftables.d/adad-killswitch.nft <<'EOF'
+flush ruleset
+
+table inet adad_killswitch {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iifname "lo" accept
+    ct state established,related accept
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+  }
+
+  chain output {
+    type filter hook output priority 0; policy drop;
+    oifname "lo" accept
+    oifname "wg0" accept
+    udp sport 68 udp dport 67 accept
+    meta skuid "debian-tor" accept
+    udp dport { 53, 5353, 1900, 137, 138 } drop
+    tcp dport { 139, 445 } drop
+  }
+}
+EOF
+
+cat > /etc/tor/torrc.d/adad.conf <<'EOF'
+SocksPort 127.0.0.1:9050
+DNSPort 127.0.0.1:5353
+AutomapHostsOnResolve 1
+ClientUseIPv6 0
+ClientPreferIPv6ORPort 0
+EOF
+
+cat > /etc/wireguard/README.adad <<'EOF'
+ADAD loads WireGuard configuration from the unlocked vault at runtime.
+No private key is baked into the live image.
+EOF
+
+cat > /usr/local/sbin/adad-killswitch-boot <<'EOF'
+#!/bin/sh
+set -eu
+
+sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null
+sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null
+sysctl -w net.ipv6.conf.lo.disable_ipv6=1 >/dev/null
+
+nft -f /etc/nftables.d/adad-killswitch.nft
+
+random_local_mac() {
+  first=$(od -An -N1 -tu1 /dev/urandom | tr -d ' ')
+  first=$(( (first | 2) & 254 ))
+  rest=$(od -An -N5 -tx1 /dev/urandom | tr -d ' \n')
+  printf '%02x:%s:%s:%s:%s:%s\n' \
+    "$first" \
+    "$(printf '%s' "$rest" | cut -c1-2)" \
+    "$(printf '%s' "$rest" | cut -c3-4)" \
+    "$(printf '%s' "$rest" | cut -c5-6)" \
+    "$(printf '%s' "$rest" | cut -c7-8)" \
+    "$(printf '%s' "$rest" | cut -c9-10)"
+}
+
+for path in /sys/class/net/*; do
+  iface=$(basename "$path")
+  [ "$iface" = "lo" ] && continue
+  mac=$(random_local_mac)
+  ip link set dev "$iface" down 2>/dev/null || true
+  ip link set dev "$iface" address "$mac" 2>/dev/null || true
+  ip link set dev "$iface" up 2>/dev/null || true
+done
+
+printf '%s\n' 'adad-killswitch: armed' > /dev/console || true
+printf '%s\n' 'adad-ipv6: disabled' > /dev/console || true
+printf '%s\n' 'adad-mac: randomized' > /dev/console || true
+EOF
+chmod 0755 /usr/local/sbin/adad-killswitch-boot
+
+cat > /usr/local/sbin/adad-leak-battery <<'EOF'
+#!/bin/sh
+set -eu
+
+console_pass() {
+  printf '%s\n' "adad-leak-battery: $1: pass" > /dev/console || true
+}
+
+console_fail() {
+  printf '%s\n' "adad-leak-battery: $1: fail" > /dev/console || true
+  systemctl poweroff --no-wall >/dev/null 2>&1 || poweroff -f || true
+  exit 1
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || console_fail "missing-$1"
+}
+
+require_cmd nft
+require_cmd ip
+require_cmd sysctl
+require_cmd systemctl
+
+for tool in agent-coding forge git-spoof leakguard metafuse persona vps-deploy xmr-wallet; do
+  [ -x "/usr/local/bin/$tool" ] || console_fail "tool-$tool"
+done
+console_pass "static-tools"
+
+[ "$(sysctl -n net.ipv6.conf.all.disable_ipv6)" = "1" ] || console_fail "ipv6-all"
+[ "$(sysctl -n net.ipv6.conf.default.disable_ipv6)" = "1" ] || console_fail "ipv6-default"
+[ "$(sysctl -n net.ipv6.conf.lo.disable_ipv6)" = "1" ] || console_fail "ipv6-lo"
+console_pass "ipv6"
+
+rules=$(nft list ruleset)
+printf '%s\n' "$rules" | grep -q 'table inet adad_killswitch' || console_fail "nft-table"
+printf '%s\n' "$rules" | grep -q 'policy drop' || console_fail "nft-policy"
+printf '%s\n' "$rules" | grep -q 'oifname "wg0" accept' || console_fail "wireguard-allow"
+grep -q 'meta skuid "debian-tor" accept' /etc/nftables.d/adad-killswitch.nft || console_fail "tor-allow"
+grep -q 'udp dport { 53, 5353, 1900, 137, 138 } drop' /etc/nftables.d/adad-killswitch.nft || console_fail "udp-leak-blocks"
+grep -q 'tcp dport { 139, 445 } drop' /etc/nftables.d/adad-killswitch.nft || console_fail "tcp-discovery-blocks"
+console_pass "killswitch"
+console_pass "dns-discovery"
+
+grep -q '^ClientUseIPv6 0$' /etc/tor/torrc.d/adad.conf || console_fail "tor-ipv6"
+grep -q '^DNSPort 127.0.0.1:5353$' /etc/tor/torrc.d/adad.conf || console_fail "tor-dns"
+systemctl is-enabled tor.service >/dev/null 2>&1 || console_fail "tor-enabled"
+console_pass "tor-default"
+
+for path in /sys/class/net/*; do
+  iface=$(basename "$path")
+  [ "$iface" = "lo" ] && continue
+  mac=$(cat "$path/address")
+  first_hex=${mac%%:*}
+  first=$((0x$first_hex))
+  [ $((first & 1)) -eq 0 ] || console_fail "mac-multicast-$iface"
+  [ $((first & 2)) -eq 2 ] || console_fail "mac-local-$iface"
+done
+console_pass "mac"
+
+if timeout 5 ping -4 -c 1 -W 1 1.1.1.1 >/tmp/adad-clearnet-ping.log 2>&1; then
+  console_fail "clearnet"
+fi
+console_pass "clearnet"
+
+drop_iface=""
+for path in /sys/class/net/*; do
+  iface=$(basename "$path")
+  [ "$iface" = "lo" ] && continue
+  drop_iface=$iface
+  break
+done
+
+if [ -n "$drop_iface" ]; then
+  ip link set dev "$drop_iface" down 2>/dev/null || true
+  sleep 1
+  rules_after=$(nft list ruleset)
+  printf '%s\n' "$rules_after" | grep -q 'table inet adad_killswitch' || console_fail "drop-nft-table"
+  printf '%s\n' "$rules_after" | grep -q 'policy drop' || console_fail "drop-nft-policy"
+  if timeout 5 ping -4 -c 1 -W 1 1.1.1.1 >/tmp/adad-drop-ping.log 2>&1; then
+    console_fail "drop-clearnet"
+  fi
+  ip link set dev "$drop_iface" up 2>/dev/null || true
+fi
+console_pass "drop"
+
+printf '%s\n' 'adad-leak-battery: all: pass' > /dev/console || true
+systemctl poweroff --no-wall >/dev/null 2>&1 || poweroff -f || true
+EOF
+chmod 0755 /usr/local/sbin/adad-leak-battery
+
+cat > /etc/systemd/system/adad-killswitch.service <<'EOF'
+[Unit]
+Description=ADAD fail-closed network posture
+DefaultDependencies=no
+After=local-fs.target systemd-sysctl.service
+Before=network-pre.target network.target tor.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/adad-killswitch-boot
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/adad-leak-battery.service <<'EOF'
+[Unit]
+Description=ADAD on-image leak battery
+ConditionKernelCommandLine=adad.leak_battery=1
+Requires=adad-killswitch.service
+After=adad-killswitch.service tor.service network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/adad-leak-battery
+TimeoutStartSec=90
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable adad-killswitch.service
+systemctl enable adad-leak-battery.service
+systemctl enable tor.service

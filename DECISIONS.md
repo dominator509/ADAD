@@ -12,9 +12,10 @@
 | ADR-006 | MAC handling = randomization (locally-administered random address), not believable-OUI impersonation. | accepted | 2026-07-03 | security |
 | ADR-007 | All core tools are static musl binaries; no dynamic linking. | accepted | 2026-07-03 | architect |
 | ADR-008 | No database/ORM/migrations; persistence is the LUKS2 vault only. | accepted | 2026-07-03 | architect |
+| ADR-010 | Use a repo-owned Docker image builder for live-build/QEMU validation when host tools are unavailable. | accepted | 2026-07-05 | architect |
 
 ## ADR index
-- ADR-001 … ADR-009 above. Full entries live inline below as they are expanded;
+- ADR-001 … ADR-010 above. Full entries live inline below as they are expanded;
   new ADRs use `.agent/templates/adr-template.md`.
 
 ## Initial ADR entries (from assumptions)
@@ -56,6 +57,20 @@ still sees content). **Decision:** default the Venice fallback to private model
 IDs; anonymized models are opt-in and emit a warning. **Consequences:** the
 privacy posture is not silently weakened by choosing a fallback; config carries
 an explicit flag.
+
+### ADR-010 — Containerized image builder
+**Context:** EP-009 requires `live-build`, `squashfs-tools`, QEMU, and related
+Linux image-build tools, but the Windows/Git-Bash host does not provide them
+natively and automated sessions must not mutate host packages or write physical
+devices. **Decision:** keep the image-build toolchain in the repo-owned
+`adad-ep009-builder:local` Docker image and run live-build/QEMU validations
+there. The container receives the mount capability live-build needs for chroot
+`/proc` and `/dev/pts`, but no host block devices are bound. **Alternatives:**
+install host packages in-session (rejected by AGENTS/COMMANDS); require a
+preconfigured external Linux builder for every EP-009/EP-010 run (rejected as
+slower and less reproducible). **Consequences:** image validation is repeatable
+from this host without host package mutation, while physical imaging remains a
+human-only release step.
 
 ## Rules for adding new decisions
 - Any change to an architectural invariant (ARCHITECTURE.md) requires an ADR.

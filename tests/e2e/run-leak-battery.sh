@@ -13,11 +13,11 @@ if [ ! -f build/adad.img ]; then
   exit 0
 fi
 
-if [ ! -x tests/os/run-qemu-leak-battery.sh ]; then
+if [ ! -f tests/os/run-qemu-leak-battery.sh ]; then
   echo "ERROR: build/adad.img exists, but tests/os/run-qemu-leak-battery.sh is not available." >&2
   echo "EP-009/EP-010 must provide the booted-image leak runner before image e2e can pass." >&2
   exit 1
 fi
 
-tests/os/run-qemu-leak-battery.sh build/adad.img
+sh tests/os/run-qemu-leak-battery.sh build/adad.img
 echo "leak battery: ok"

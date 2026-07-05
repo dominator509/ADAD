@@ -18,6 +18,12 @@
 Host OS for building: Debian/Ubuntu x86_64. Agents do not `apt install` in a
 session; missing host tools are a STOP (see `scripts/install.sh`).
 
+When the user explicitly resolves the EP-009 builder blocker, the repo-owned
+container builder may be prepared with `scripts/build-image-builder.sh` and
+verified with `scripts/check-image-builder.sh`. That installs the required
+image-build tools inside the `adad-ep009-builder:local` Docker image only; it
+does not install host packages and still writes no physical device.
+
 ## Package manager
 `cargo` for crates; `apt` for host packages (human-run only).
 
@@ -54,6 +60,11 @@ shutdown. Never written to host disk, never logged, never committed.
 2. `cargo install cargo-audit`.
 3. Install host tools (`cryptsetup`, `util-linux`, `e2fsprogs`, `coreutils`, `live-build`, `squashfs-tools`, `qemu-system-x86`).
 4. `scripts/preflight.sh` then `scripts/install.sh`.
+
+Containerized image-builder setup for EP-009:
+1. `scripts/build-image-builder.sh`
+2. `scripts/check-image-builder.sh`
+3. `scripts/build-image.sh` to produce `build/adad.img`
 
 ## Local database setup
 Not applicable (no database).

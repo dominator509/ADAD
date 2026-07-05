@@ -16,6 +16,11 @@ but you should be at the root.
 - Rust crates: `cargo` (stable toolchain, `x86_64-unknown-linux-musl` target).
 - Host OS packages: `apt` (Debian). Agents do NOT run `apt install` in a
   session — missing host tools are a STOP condition (see `scripts/install.sh`).
+- EP-009 builder exception: when the user explicitly approves resolving the
+  image-builder blocker, agents may build the repo-owned Docker builder image
+  with `scripts/build-image-builder.sh`. The only `apt` use is inside
+  `live-build/builder/Dockerfile`; it installs the image-build tools listed in
+  `ENVIRONMENT.md` and does not touch host packages or physical devices.
 - No other package managers. No `npm`, no `pip` in the core build.
 
 ## Lifecycle commands (use these — do not inline their internals)
@@ -36,6 +41,11 @@ but you should be at the root.
 | Smoke test | `scripts/smoke-test.sh` | `smoke test: ok` |
 | Full verify | `scripts/verify.sh` | `verify: ok` |
 | Production readiness | `scripts/production-readiness-check.sh` | `production readiness: ok` |
+| Build EP-009 image builder | `scripts/build-image-builder.sh` | `image builder: ok` |
+| Check EP-009 image builder | `scripts/check-image-builder.sh` | `image builder check: ok` |
+| Build bootable image | `scripts/build-image.sh` | `image build: ok` |
+| OS boot smoke | `tests/os/boot-smoke.sh` | `boot smoke: ok` |
+| Rollback drill | `tests/os/rollback-drill.sh` | `rollback drill: ok` |
 
 Host notes:
 - `scripts/build.sh` performs the actual static-link check on Linux. On
@@ -60,6 +70,16 @@ Host notes:
   tests: `llama-server --model <path-to-gguf> --host 127.0.0.1 --port 8080`
   (OpenAI-compatible endpoint at `/v1/chat/completions`). Confirm exact flags
   with `llama-server --help`; do not guess.
+- Prepare a containerized EP-009 image builder when host tools are unavailable
+  and the blocker has an explicit user resolution:
+  `scripts/build-image-builder.sh` then `scripts/check-image-builder.sh`
+  (Dockerfile lives at `live-build/builder/Dockerfile` and installs the
+  `ENVIRONMENT.md` image-build tools inside the container only).
+- Build the EP-009 Debian-Live image artifact:
+  `scripts/build-image.sh`
+  (runs live-build inside `adad-ep009-builder:local` and writes
+  `build/adad.img`; the container receives mount capability for live-build's
+  chroot `/proc` and `/dev/pts` mounts, but no host block devices are bound).
 
 ## Database / migrations
 
@@ -91,7 +111,8 @@ commands.
 ## Forbidden commands / actions
 
 - Inventing any command not listed here.
-- `apt install` / `apt-get install` inside an agent session (STOP instead).
+- `apt install` / `apt-get install` inside an agent session (STOP instead),
+  except the EP-009 Docker builder path explicitly listed above.
 - `cargo install claw-code` (it is a deprecated stub — see EP-002 vendoring
   notes; use the pinned vendored crates instead).
 - Any write to a real block device: `dd of=/dev/...`, `mkfs`, `wipefs`,
