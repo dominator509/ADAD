@@ -16,7 +16,7 @@ rm -f "$log"
 set +e
 timeout "${ADAD_BOOT_TIMEOUT:-180}" qemu-system-x86_64 \
   -m "${ADAD_QEMU_MEM:-1536}" \
-  -smp 2 \
+  -smp "${ADAD_QEMU_SMP:-2}" \
   -machine accel=tcg \
   -display none \
   -serial stdio \

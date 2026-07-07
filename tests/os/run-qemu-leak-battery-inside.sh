@@ -25,7 +25,7 @@ xorriso -osirrox on -indev "$image" \
 set +e
 timeout "${ADAD_LEAK_BATTERY_TIMEOUT:-240}" qemu-system-x86_64 \
   -m "${ADAD_QEMU_MEM:-1536}" \
-  -smp 2 \
+  -smp "${ADAD_QEMU_SMP:-2}" \
   -machine accel=tcg \
   -display none \
   -serial stdio \

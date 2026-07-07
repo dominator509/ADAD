@@ -68,7 +68,9 @@
 ## Performance test rules
 - Inference throughput smoke: measure tok/s against a tiny GGUF and assert it is
   within the documented band for the tier (see PROJECT_BRIEF metrics). Run in
-  EP-010, not every verify (too slow).
+  EP-010, not every verify (too slow). `scripts/min-system-sim.sh` is the
+  documented harness for collecting floor/target/comfort timing data and, when
+  `ADAD_PERF_GGUF` is supplied, optional local inference throughput.
 - Killswitch latency: assert DROP-ALL within target on simulated interface drop.
 
 ## Accessibility test rules (TUI)

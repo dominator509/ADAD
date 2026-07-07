@@ -46,6 +46,8 @@ but you should be at the root.
 | Build bootable image | `scripts/build-image.sh` | `image build: ok` |
 | OS boot smoke | `tests/os/boot-smoke.sh` | `boot smoke: ok` |
 | Rollback drill | `tests/os/rollback-drill.sh` | `rollback drill: ok` |
+| Minimum system simulation | `scripts/min-system-sim.sh [profile ...]` | `min system sim: ok` |
+| Fetch repo-local llama runtime | `scripts/fetch-llama-cpp-runtime.sh` | `llama runtime: ok` |
 
 Host notes:
 - `scripts/build.sh` performs the actual static-link check on Linux. On

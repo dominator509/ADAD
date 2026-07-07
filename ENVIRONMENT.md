@@ -47,6 +47,11 @@ process environment at runtime.
 | `ADAD_DMS_WINDOW_HOURS` | optional | runtime | `72` | no | Dead Man's Switch window. | positive integer |
 | `ADAD_WG_CONF` | optional | runtime | `/run/adad/wg0.conf` | YES | WireGuard config (contains private key). | vault-loaded; never committed |
 | `MONERO_RPC_URL` | optional | runtime | `http://127.0.0.1:18082/json_rpc` | no | monero-wallet-rpc endpoint (over Tor). | via Tor only |
+| `ADAD_PERF_GGUF` | optional | local/test | `fixtures/tiny.gguf` | no | Repo-visible tiny GGUF used by `scripts/min-system-sim.sh` for optional local inference timing. | file must exist |
+| `ADAD_PERF_HF_MODEL` | optional | local/test | `Qwen/Qwen2.5-Coder-32B-Instruct-GGUF:Q3_K_M` | no | Hugging Face model ref fetched by repo-local `llama.cpp` during minimum-system simulation. | non-empty Hugging Face ref |
+| `ADAD_LLAMA_SERVER_BIN` | optional | local/test | `llama-server` | no | `llama-server` binary name/path visible inside the simulation environment. | executable must exist if inference timing is enabled |
+| `ADAD_LLAMA_CPP_RELEASE_TAG` | optional | local/test | `b9892` | no | `llama.cpp` GitHub release tag used by the repo-local runtime fetcher. | non-empty release tag |
+| `ADAD_LLAMA_READY_TIMEOUT` | optional | local/test | `300` | no | Seconds to wait for `llama-server` to answer before recording a simulator skip reason. | positive integer |
 
 > This table needs per-crate confirmation as crates are implemented. Each
 > ExecPlan that reads a variable must confirm the name here first.
@@ -75,6 +80,16 @@ devices or remotes. EP-003 vault tests require a Linux host that already
 provides `cryptsetup`, `losetup`, `mkfs.ext4`, `mount`, `umount`, and
 `truncate`; agents do not install them in-session. A tiny GGUF is used for
 inference tests.
+
+Minimum-system simulation:
+1. Ensure `build/adad.img` exists.
+2. Run `scripts/min-system-sim.sh` for floor/target/comfort profile timings, or
+   `scripts/min-system-sim.sh host32` to match the current 32 GB / 8-core host
+   class.
+3. Optionally set `ADAD_PERF_GGUF` to a repo-visible tiny GGUF, or
+   `ADAD_PERF_HF_MODEL` to a supported Hugging Face model ref, to record local
+   inference latency/tok-s data in the same run.
+4. Large-model startup logs land under `build/min-system-sim-tmp/`.
 
 ## Staging environment setup
 "Staging" = a QEMU VM booting the built image with a monitored NIC/disk. No
