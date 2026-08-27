@@ -51,11 +51,17 @@ but you should be at the root.
 
 Host notes:
 - `scripts/build.sh` performs the actual static-link check on Linux. On
-  non-Linux hosts it prints an explicit skip line and relies on Linux CI for the
-  authoritative static assertion.
+  non-Linux hosts it performs a native release compilation, prints an explicit
+  static-check skip line, and relies on Linux CI for the authoritative static
+  assertion.
 - `scripts/smoke-test.sh` executes the musl binaries on Linux. On non-Linux
   hosts it prints an explicit skip line instead of silently passing without
   execution.
+- Release-shaped verification sets `ADAD_REQUIRE_IMAGE=1`; in that mode
+  `scripts/test-integration.sh` fails if `build/adad.img` or its provenance is
+  absent instead of treating the OS test as a pass. Source-only development
+  verification leaves that variable unset and labels the image test explicitly
+  as omitted.
 
 ## Local development commands
 
@@ -115,8 +121,8 @@ commands.
 - Inventing any command not listed here.
 - `apt install` / `apt-get install` inside an agent session (STOP instead),
   except the EP-009 Docker builder path explicitly listed above.
-- `cargo install claw-code` (it is a deprecated stub — see EP-002 vendoring
-  notes; use the pinned vendored crates instead).
+- `cargo install claw-code` (deprecated historical tooling; the active MCP
+  foundation is `rmcp` plus ADAD-owned execution in `agent-coding`).
 - Any write to a real block device: `dd of=/dev/...`, `mkfs`, `wipefs`,
   `cryptsetup luksFormat /dev/...`, `kexec` on a live host. Image files only.
 - Pushing to a real remote, provisioning a real VPS, or spending real XMR.

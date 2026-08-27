@@ -26,6 +26,20 @@ fn fallback_request_is_blocked_before_socket_write_when_tunnel_inactive() {
 }
 
 #[test]
+fn fallback_request_is_blocked_by_default_until_egress_is_authorized() {
+    let server = MockInferenceServer::start();
+    let client = OpenAiCompatClient::new(server.base_url("openai"), "sk-test", "model")
+        .with_egress_mode(EgressMode::Fallback);
+
+    let error = client
+        .chat(&[ChatMessage::user("blocked by default")])
+        .expect_err("fallback must default to blocked");
+
+    assert_eq!(error, Error::EgressBlocked);
+    assert!(server.requests().is_empty());
+}
+
+#[test]
 fn local_provider_is_unaffected_by_inactive_fallback_tunnel() {
     let server = MockInferenceServer::start();
     let client = OpenAiCompatClient::new(server.base_url("local"), "", "qwen2.5-coder")

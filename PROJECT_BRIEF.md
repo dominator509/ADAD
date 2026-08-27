@@ -44,11 +44,11 @@ host trace and no network leaks.
   killswitch — reusing proven substrate rather than reimplementing it.
 - Static musl Rust binaries for all core tools (no dynamic linking; avoids
   `torsocks`/`LD_PRELOAD` proxy issues).
-- A local-first agent harness that **vendors two crates from `claw-code` at a
-  pinned commit** — the MCP integration and the tool-execution engine — wrapped
-  in an ADAD-owned local-first control loop. The harness talks to one
+- A local-first agent harness built on the official Rust MCP SDK (`rmcp`) and
+  ADAD-owned execution/policy logic. The harness talks to one
   `OpenAiCompatClient` whose base URL selects local `llama-server`, a generic
-  OpenAI-compatible endpoint, or Venice.
+  OpenAI-compatible endpoint, or Venice. The executable/runtime integration is
+  an explicit release gate, not implied by library tests.
 - IPv6 disabled at the kernel level; no swap; no clearnet under any condition.
 
 ## Out-of-scope items

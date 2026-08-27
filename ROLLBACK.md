@@ -13,7 +13,9 @@ STOP condition requiring human action — never automated device writes.
 ## Rollback types
 - **Image rollback:** re-image the drive with the previous release artifact.
 - **Config rollback:** revert provider/networking config inside the vault.
-- **Vendored-crate rollback:** re-pin claw-code crates to the prior commit (ADR).
+- **Dependency rollback:** restore the prior workspace manifests and
+  `Cargo.lock` through the active ExecPlan; the superseded claw-code vendoring
+  design is not a rollback target.
 
 ## Application rollback
 Re-image with the previous `adad.img`. Because the root is amnesic, there is no

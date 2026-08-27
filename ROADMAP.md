@@ -34,8 +34,9 @@ discovery→production arc.
 - **Specs:** SPEC-002. **ExecPlans:** EP-003.
 
 ## Phase 3 — API / service layer
-- **Purpose:** The agent-coding harness: vendored claw-code MCP + tool-exec
-  crates wrapped in the ADAD local-first control loop; `OpenAiCompatClient`
+- **Purpose:** The agent-coding harness: official `rmcp` MCP protocol support
+  and ADAD-owned tool execution wrapped in the local-first control loop;
+  `OpenAiCompatClient`
   (llama-server default; OpenAI/Venice fallback); `xmr-wallet-rs` and
   `vps-deploy-rs` service surfaces.
 - **Dependencies:** Phase 2.

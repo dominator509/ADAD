@@ -9,11 +9,23 @@ if [ ! -f Cargo.toml ]; then
 fi
 cargo test --workspace --tests
 
-# OS integration test is opt-in: only run if an image + harness exist. Building
-# an image every verify cycle is too slow, so it is gated on a built artifact.
-if [ -f build/adad.img ] && [ -x tests/os/boot-smoke.sh ]; then
-  tests/os/boot-smoke.sh
+# Source-only verification may omit the expensive image run, but release CI
+# must opt into a hard failure rather than silently treating it as green.
+if [ "${ADAD_REQUIRE_IMAGE:-0}" = "1" ]; then
+  [ -f build/adad.img ] || {
+    echo "ERROR: release integration requires build/adad.img." >&2
+    exit 1
+  }
+  [ -f build/adad-image.provenance ] || {
+    echo "ERROR: release integration requires image provenance." >&2
+    exit 1
+  }
+  [ -f tests/os/boot-smoke.sh ] || {
+    echo "ERROR: release integration requires the boot-smoke harness." >&2
+    exit 1
+  }
+  sh tests/os/boot-smoke.sh
 else
-  echo "integration tests: (OS boot harness skipped - no build/adad.img yet)"
+  echo "integration tests: (source-only; ignored image artifacts are not used)"
 fi
 echo "integration tests: ok"

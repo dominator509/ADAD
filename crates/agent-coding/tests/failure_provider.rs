@@ -1,9 +1,10 @@
 use adad_core::Error;
-use agent_coding::{ChatMessage, OpenAiCompatClient};
+use agent_coding::{ChatMessage, OpenAiCompatClient, StaticEgressState};
 
 #[test]
 fn failure_provider_rejects_unsupported_url_without_socket_write() {
-    let client = OpenAiCompatClient::new("https://api.example.invalid/v1", "sk-test", "model");
+    let client = OpenAiCompatClient::new("https://api.example.invalid/v1", "sk-test", "model")
+        .with_egress_state(StaticEgressState::active());
 
     let error = client
         .chat(&[ChatMessage::user("hello")])

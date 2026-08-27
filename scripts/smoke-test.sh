@@ -3,17 +3,17 @@
 # full OS boot. Confirms the workspace produced runnable artifacts.
 set -eu
 cd "$(dirname "$0")/.."
-BINDIR=target/x86_64-unknown-linux-musl/release
-if [ ! -d "$BINDIR" ]; then
-  echo "ERROR: no release binaries. Run scripts/build.sh first (EP-001+)." >&2
-  exit 1
-fi
-
 host_os=$(uname -s 2>/dev/null || echo unknown)
 if [ "$host_os" != "Linux" ]; then
   echo "smoke: skipped - host '$host_os' cannot execute Linux musl binaries"
   echo "smoke test: ok"
   exit 0
+fi
+
+BINDIR=target/x86_64-unknown-linux-musl/release
+if [ ! -d "$BINDIR" ]; then
+  echo "ERROR: no release binaries. Run scripts/build.sh first (EP-001+)." >&2
+  exit 1
 fi
 
 # On Linux, every core tool built by the workspace must execute successfully.

@@ -10,6 +10,29 @@ image="${1:-build/adad.img}"
   exit 1
 }
 
+provenance=build/adad-image.provenance
+[ -f "$provenance" ] || {
+  echo "ERROR: $provenance not found; build the image with provenance first." >&2
+  exit 1
+}
+
+source_sha=$(git rev-parse HEAD)
+provenance_source_sha=$(sed -n 's/^source_sha=//p' "$provenance" | head -n 1)
+provenance_image_sha=$(sed -n 's/^image_sha256=//p' "$provenance" | head -n 1)
+actual_image_sha=$(sha256sum "$image" | awk '{print $1}')
+[ -n "$provenance_source_sha" ] || {
+  echo "ERROR: image provenance has no source SHA." >&2
+  exit 1
+}
+[ "$provenance_source_sha" = "$source_sha" ] || {
+  echo "ERROR: image provenance source SHA does not match HEAD." >&2
+  exit 1
+}
+[ "$provenance_image_sha" = "$actual_image_sha" ] || {
+  echo "ERROR: image provenance digest does not match the tested image." >&2
+  exit 1
+}
+
 tmp="${TMPDIR:-/tmp}/adad-leak-battery.$$"
 log="${TMPDIR:-/tmp}/adad-leak-battery.log"
 rm -rf "$tmp"
@@ -58,6 +81,10 @@ do
   fi
 done
 
-printf 'leak battery pass\n' > build/leak-battery.pass.tmp
+{
+  printf 'battery=on-image\n'
+  printf 'source_sha=%s\n' "$source_sha"
+  printf 'image_sha256=%s\n' "$actual_image_sha"
+} > build/leak-battery.pass.tmp
 mv build/leak-battery.pass.tmp build/leak-battery.pass
 echo "qemu leak battery: ok"

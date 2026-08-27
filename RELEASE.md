@@ -25,14 +25,17 @@ called out.
 - [ ] `scripts/verify.sh` exits 0.
 - [ ] `build/adad.img` builds; boots in QEMU.
 - [ ] Leak battery passes (`build/leak-battery.pass` present).
+- [ ] `build/adad-image.provenance` binds the image SHA-256 and source tree to
+      the exact clean checkout under test.
 - [ ] `scripts/production-readiness-check.sh` exits 0.
 
 ## Release checklist
 See `.agent/checklists/release.md`.
 
 ## Smoke tests
-Boot the RC image in QEMU; confirm TUI, Tor bootstrap, killswitch armed, leak
-battery pass.
+Boot the RC image in QEMU; confirm the shipped application workflows, Tor
+bootstrap, killswitch armed, leak battery pass, and that the provenance files
+refer to the exact image being tested.
 
 ## Approvals
 Device imaging and any real infra spend are human-gated. The blueprint loop

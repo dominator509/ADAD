@@ -50,7 +50,8 @@ metadata-stripped code publishing.
 
 ## Dependency security rules
 - `cargo audit` runs in every verify. A known-vuln or yanked crate fails.
-- Vendored claw-code crates are pinned; re-pinning requires an ADR.
+- The active MCP dependency is the official `rmcp` SDK; dependency changes are
+  reviewed, locked in `Cargo.lock`, and recorded in an ADR or ExecPlan.
 
 ## Logging redaction rules
 - Structured logs redact: passphrases, API keys, wallet addresses/keys,

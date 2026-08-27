@@ -7,8 +7,9 @@
 
 ## User-visible goal
 The agent-coding harness drives a tool-using loop against a local model by
-default and cloud fallbacks on demand; wallet and VPS service methods work
-against their (mocked) backends with stable contracts.
+default and cloud fallbacks on demand; wallet and VPS service methods expose
+stable contracts. Tests use mocked backends, but mock success is not production
+transport evidence.
 
 ## Non-goals
 No UI here (EP-005). No real inference weights, real wallet, or real VPS in
@@ -17,8 +18,9 @@ tests — mocks only. No inference HTTP calls outside `OpenAiCompatClient`.
 ## Terms
 - **OpenAiCompatClient:** the single client whose `base_url`/`api_key`/`model`
   select provider; used for llama-server, OpenAI-compatible, and Venice.
-- **Vendored crates:** claw-code MCP + tool-exec crates under `vendor/`, imported
-  only by `agent-coding`.
+- **MCP foundation:** the official Rust MCP SDK (`rmcp`) is imported only by
+  `agent-coding`; ADAD owns tool qualification, execution policy, and the
+  control loop.
 
 ## Required behavior
 ### Provider client
@@ -32,9 +34,9 @@ tests — mocks only. No inference HTTP calls outside `OpenAiCompatClient`.
   `ADAD_VENICE_ALLOW_ANONYMIZED=true` and MUST emit a warning.
 
 ### Agent loop
-- The ADAD control loop MUST use the vendored tool-exec engine to run tools in
-  the workspace and the vendored MCP integration for MCP servers (stdio + HTTP/
-  SSE), while owning planning/iteration itself (not claw-code's cloud-first loop).
+- The ADAD control loop MUST use ADAD-owned execution policy for workspace tools
+  and the official MCP SDK for MCP servers (stdio + HTTP/SSE), while owning
+  planning/iteration itself.
 - The loop MUST enforce a bounded tool-iteration budget and surface tool errors
   as typed results.
 
@@ -92,5 +94,6 @@ outcomes — all redacted.
 - [ ] Contract + Venice + egress-guard tests pass.
 - [ ] Agent loop test passes against the mock inference server and mock tools.
 - [ ] Wallet + VPS mock integration tests pass; no real backend touched.
-- [ ] Only `agent-coding` imports the vendored crates (checked via Cargo.toml).
+- [ ] Only `agent-coding` imports the MCP protocol crate (checked via
+  Cargo.toml); no superseded claw-code runtime is used.
 - [ ] `scripts/verify.sh` exits 0.

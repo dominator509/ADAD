@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  verify:
+  source-verify:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -17,5 +17,39 @@ jobs:
           targets: x86_64-unknown-linux-musl
       - name: Install cargo-audit
         uses: taiki-e/install-action@cargo-audit
-      - name: Verify full suite
+      - name: Verify source suite
         run: sh scripts/verify.sh
+
+  release-image:
+    needs: source-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+      - name: Build static tools
+        run: sh scripts/build.sh
+      - name: Build image builder
+        run: sh scripts/build-image-builder.sh
+      - name: Build release image
+        run: sh scripts/build-image.sh
+      - name: Verify exact release image
+        env:
+          ADAD_REQUIRE_IMAGE: "1"
+        run: sh scripts/verify.sh
+      - name: Verify release provenance
+        run: sh scripts/production-readiness-check.sh
+      - name: Upload tested release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: adad-release-evidence
+          path: |
+            build/adad.img
+            build/adad-image.provenance
+            build/leak-battery.pass

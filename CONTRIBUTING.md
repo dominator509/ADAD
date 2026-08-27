@@ -13,7 +13,8 @@ then `scripts/preflight.sh` and `scripts/install.sh`.
 - Library modules hold testable logic; binaries are thin. No business logic in
   TUI/CLI rendering.
 - `adad-core` stays I/O-free. Tool crates do not import each other. Only
-  `agent-coding` imports vendored claw-code crates.
+  `agent-coding` imports the official `rmcp` SDK and owns MCP qualification,
+  execution, and policy logic in-tree.
 - Static-musl must keep building.
 
 ## Test requirements

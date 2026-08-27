@@ -10,6 +10,7 @@ RUN apt-get update \
       debootstrap \
       e2fsprogs \
       fdisk \
+      git \
       live-build \
       qemu-system-x86 \
       squashfs-tools \

@@ -7,10 +7,16 @@ cd "$(dirname "$0")/../.."
 sh tests/e2e/assert-leakguard-model.sh
 sh tests/e2e/assert-agent-egress-guard.sh
 
-if [ ! -f build/adad.img ]; then
-  echo "leak battery: on-image assertions pending (build/adad.img not present; EP-009/EP-010 will run QEMU battery)"
-  echo "leak battery: ok (model-level)"
+# Source-only verification must not accidentally consume an ignored image from
+# another checkout or source revision. Release CI sets ADAD_REQUIRE_IMAGE=1.
+if [ "${ADAD_REQUIRE_IMAGE:-0}" != "1" ]; then
+  echo "leak battery: on-image assertions not requested; source-only model checks passed"
   exit 0
+fi
+
+if [ ! -f build/adad.img ]; then
+  echo "ERROR: release leak battery requires build/adad.img." >&2
+  exit 1
 fi
 
 if [ ! -f tests/os/run-qemu-leak-battery.sh ]; then

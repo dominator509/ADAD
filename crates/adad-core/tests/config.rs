@@ -70,3 +70,25 @@ openai_base_url = "https://api.example.com/v1"
 
     assert_eq!(config.provider, Provider::OpenAi);
 }
+
+#[test]
+fn decodes_basic_string_escapes_symmetrically() {
+    let config = Config::from_toml_str(
+        r#"
+config_version = 2
+provider = "local"
+model = "line\nquote\"slash\\"
+"#,
+    )
+    .expect("escaped config should parse");
+
+    assert_eq!(config.model.as_deref(), Some("line\nquote\"slash\\"));
+}
+
+#[test]
+fn rejects_unknown_and_incomplete_string_escapes() {
+    for model in [r#""bad\q""#, r#""bad\""#] {
+        let input = format!("config_version = 2\nprovider = \"local\"\nmodel = {model}\n");
+        assert!(Config::from_toml_str(&input).is_err(), "input: {input}");
+    }
+}

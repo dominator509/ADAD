@@ -232,7 +232,47 @@ fn parse_string(raw: &str, field: ConfigField) -> Result<String, Error> {
         return Err(Error::Config { field });
     }
 
-    Ok(raw[1..raw.len() - 1].to_owned())
+    let mut parsed = String::with_capacity(raw.len() - 2);
+    let mut chars = raw[1..raw.len() - 1].chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            parsed.push(ch);
+            continue;
+        }
+
+        let escaped = chars.next().ok_or(Error::Config { field })?;
+        match escaped {
+            'b' => parsed.push('\u{0008}'),
+            't' => parsed.push('\t'),
+            'n' => parsed.push('\n'),
+            'f' => parsed.push('\u{000C}'),
+            'r' => parsed.push('\r'),
+            '"' => parsed.push('"'),
+            '\\' => parsed.push('\\'),
+            'u' => parsed.push(parse_unicode_escape(&mut chars, 4, field)?),
+            'U' => parsed.push(parse_unicode_escape(&mut chars, 8, field)?),
+            _ => return Err(Error::Config { field }),
+        }
+    }
+
+    Ok(parsed)
+}
+
+fn parse_unicode_escape(
+    chars: &mut impl Iterator<Item = char>,
+    digits: usize,
+    field: ConfigField,
+) -> Result<char, Error> {
+    let mut value = 0_u32;
+    for _ in 0..digits {
+        let digit = chars.next().and_then(|ch| ch.to_digit(16));
+        value = value
+            .checked_mul(16)
+            .and_then(|value| value.checked_add(digit?))
+            .ok_or(Error::Config { field })?;
+    }
+
+    char::from_u32(value).ok_or(Error::Config { field })
 }
 
 fn parse_bool(raw: &str, field: ConfigField) -> Result<bool, Error> {

@@ -6,13 +6,19 @@ loop of fresh coding-agent sessions, one ExecPlan at a time, from empty
 repository to production readiness.
 
 Architecture already decided and baked in: a hardened **Debian-Live base** built
-over with `live-build`; an agent harness that **vendors two claw-code crates**
-(MCP + tool-exec) at a pinned commit and wraps them in an ADAD-owned local-first
-control loop; a single `OpenAiCompatClient` with **llama-server as the default**
-provider and **OpenAI-compatible + Venice** fallbacks over **WireGuard**; full
-leak-free posture (Tor-by-default, fail-closed killswitch, IPv6 off, no DNS/
-discovery leaks); **MAC randomization** (not impersonation); and a **stable
-pseudonymous git identity** (not per-push rotation).
+over with `live-build`; an agent harness using the official Rust MCP SDK
+(`rmcp`) with ADAD-owned execution and policy logic; a single
+`OpenAiCompatClient` with **llama-server as the default** provider and
+**OpenAI-compatible + Venice** fallbacks over **WireGuard**; full leak-free
+posture (Tor-by-default, fail-closed killswitch, IPv6 off, no DNS/discovery
+leaks); **MAC randomization** (not impersonation); and a **stable pseudonymous
+git identity** (not per-push rotation).
+
+The implementation is still experimental. Library contracts, models, mocks,
+and a live-build recipe do not by themselves prove that the shipped
+executables, Linux security adapters, external transports, or release image
+provide those workflows. See `PRODUCTION_READINESS.md` for the outstanding
+gates.
 
 ## 0. Run the fully unattended build
 
@@ -148,8 +154,8 @@ into any coding agent that can read files, edit files, and run terminal commands
 - **Never operate on a real device, remote, VPS, or wallet from an automated
   session** — those are STOP conditions. Tests use loopback images, QEMU, and
   mocks only.
-- **The claw-code vendoring (EP-002 M4) has a hard STOP:** if the MCP + tool-exec
-  crates can't build in isolation at the pinned commit, the loop halts with a
-  blocker rather than importing the cloud-first runtime.
+- **The active MCP boundary is `rmcp` plus ADAD-owned execution:** do not add
+  claw-code runtime imports or describe the superseded vendoring design as
+  current.
 - **The leak battery is the authoritative security gate.** It runs on the booted
   image in EP-009/EP-010; never weaken or skip a leak/security test to pass.

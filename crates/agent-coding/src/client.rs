@@ -1,10 +1,4 @@
-use std::{
-    fmt,
-    io::{Read, Write},
-    net::TcpStream,
-    sync::Arc,
-    time::Duration,
-};
+use std::{fmt, sync::Arc, time::Duration};
 
 use adad_core::{EgressSnapshot, Error};
 use serde::{Deserialize, Serialize};
@@ -140,7 +134,10 @@ impl OpenAiCompatClient {
             api_key: api_key.into(),
             model: model.into(),
             egress_mode,
-            egress_state: Arc::new(StaticEgressState::active()),
+            // A client cannot prove that WireGuard is active.  Fallback access
+            // therefore remains blocked until the supervisor supplies the
+            // authoritative leakguard snapshot.
+            egress_state: Arc::new(StaticEgressState::inactive()),
         }
     }
 
@@ -195,104 +192,59 @@ impl OpenAiCompatClient {
     }
 
     fn post_json(&self, endpoint: &Endpoint, body: &str) -> Result<String, Error> {
-        let mut stream = TcpStream::connect((endpoint.host.as_str(), endpoint.port))
-            .map_err(|_| Error::Provider)?;
-        stream
-            .set_read_timeout(Some(Duration::from_secs(10)))
-            .map_err(|_| Error::Provider)?;
-        stream
-            .set_write_timeout(Some(Duration::from_secs(10)))
-            .map_err(|_| Error::Provider)?;
-
-        let mut request = format!(
-            "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n",
-            endpoint.chat_path(),
-            endpoint.host_header(),
-            body.len()
-        );
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(10)))
+            // Ambient proxy variables are not an authorized ADAD egress path.
+            // Routing is provided by loopback for local inference or by the
+            // leakguard/WireGuard boundary for fallbacks.
+            .proxy(None)
+            .build()
+            .new_agent();
+        let mut request = agent
+            .post(&endpoint.url)
+            .header("Content-Type", "application/json");
         if !self.api_key.is_empty() {
-            request.push_str("Authorization: Bearer ");
-            request.push_str(&self.api_key);
-            request.push_str("\r\n");
+            request = request.header("Authorization", &format!("Bearer {}", self.api_key));
         }
-        request.push_str("\r\n");
-        request.push_str(body);
 
-        stream
-            .write_all(request.as_bytes())
-            .map_err(|_| Error::Provider)?;
-
-        let mut response = String::new();
-        stream
-            .read_to_string(&mut response)
-            .map_err(|_| Error::Provider)?;
-        split_http_response(&response)
+        let mut response = request.send(body).map_err(|_| Error::Provider)?;
+        response
+            .body_mut()
+            .read_to_string()
+            .map_err(|_| Error::Provider)
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Endpoint {
-    host: String,
-    port: u16,
-    path_prefix: String,
+    url: String,
 }
 
 impl Endpoint {
     fn parse(base_url: &str) -> Result<Self, Error> {
-        let rest = base_url.strip_prefix("http://").ok_or(Error::Provider)?;
-        let (authority, path_prefix) = match rest.split_once('/') {
-            Some((authority, path)) => (authority, format!("/{path}")),
-            None => (rest, String::new()),
-        };
-        if authority.is_empty() {
+        let (scheme, rest) = base_url.split_once("://").ok_or(Error::Provider)?;
+        if !matches!(scheme, "http" | "https") {
+            return Err(Error::Provider);
+        }
+        let authority = rest.split('/').next().ok_or(Error::Provider)?;
+        if authority.is_empty() || authority.contains('@') {
             return Err(Error::Provider);
         }
 
-        let (host, port) = match authority.rsplit_once(':') {
-            Some((host, port)) => {
-                let port = port.parse::<u16>().map_err(|_| Error::Provider)?;
-                (host.to_owned(), port)
-            }
-            None => (authority.to_owned(), 80),
+        let path_prefix = match rest.split_once('/') {
+            Some((_, path)) => format!("/{path}"),
+            None => String::new(),
         };
-        if host.is_empty() {
-            return Err(Error::Provider);
-        }
 
         Ok(Self {
-            host,
-            port,
-            path_prefix,
+            url: format!(
+                "{scheme}://{}{}{}",
+                authority,
+                path_prefix.trim_end_matches('/'),
+                "/chat/completions"
+            ),
         })
     }
-
-    fn chat_path(&self) -> String {
-        format!(
-            "{}/chat/completions",
-            self.path_prefix.trim_end_matches('/')
-        )
-    }
-
-    fn host_header(&self) -> String {
-        if self.port == 80 {
-            self.host.clone()
-        } else {
-            format!("{}:{}", self.host, self.port)
-        }
-    }
-}
-
-fn split_http_response(response: &str) -> Result<String, Error> {
-    let (head, body) = response.split_once("\r\n\r\n").ok_or(Error::Provider)?;
-    let status_line = head.lines().next().ok_or(Error::Provider)?;
-    let status = status_line
-        .split_whitespace()
-        .nth(1)
-        .ok_or(Error::Provider)?;
-    if status != "200" {
-        return Err(Error::Provider);
-    }
-    Ok(body.to_owned())
 }
 
 #[derive(Deserialize)]
@@ -365,8 +317,14 @@ mod tests {
     fn endpoint_joins_v1_chat_path() {
         let endpoint = Endpoint::parse("http://127.0.0.1:8080/v1").expect("valid endpoint");
 
-        assert_eq!(endpoint.chat_path(), "/v1/chat/completions");
-        assert_eq!(endpoint.host_header(), "127.0.0.1:8080");
+        assert_eq!(endpoint.url, "http://127.0.0.1:8080/v1/chat/completions");
+    }
+
+    #[test]
+    fn endpoint_accepts_https_for_fallback_providers() {
+        let endpoint = Endpoint::parse("https://api.example.test/v1").expect("valid endpoint");
+
+        assert_eq!(endpoint.url, "https://api.example.test/v1/chat/completions");
     }
 
     #[test]

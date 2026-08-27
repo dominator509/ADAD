@@ -6,10 +6,26 @@ repo=/workspace
 work=/tmp/adad-live-build-work
 
 cd "$repo"
+# The builder commonly runs as root against a checkout owned by the CI runner.
+# Allow Git's read-only provenance queries for that mounted checkout.
+git config --global --add safe.directory "$repo" >/dev/null 2>&1 || true
 [ -d live-build/config ] || {
   echo "ERROR: live-build/config is missing." >&2
   exit 1
 }
+
+source_sha=$(git rev-parse HEAD 2>/dev/null) || {
+  echo "ERROR: image build requires a Git checkout." >&2
+  exit 1
+}
+source_tree=$(git rev-parse 'HEAD^{tree}' 2>/dev/null) || {
+  echo "ERROR: image build could not resolve the source tree." >&2
+  exit 1
+}
+if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+  echo "ERROR: image build requires a clean source checkout; provenance cannot bind dirty files." >&2
+  exit 1
+fi
 
 rm -rf "$work"
 mkdir -p "$work" "$repo/build"
@@ -80,4 +96,12 @@ fi
 
 cp "$artifact" "$repo/build/adad.img.tmp"
 mv "$repo/build/adad.img.tmp" "$repo/build/adad.img"
+image_sha256=$(sha256sum "$repo/build/adad.img" | awk '{print $1}')
+{
+  printf 'source_sha=%s\n' "$source_sha"
+  printf 'source_tree=%s\n' "$source_tree"
+  printf 'image_sha256=%s\n' "$image_sha256"
+  printf 'source_date_epoch=%s\n' "$SOURCE_DATE_EPOCH"
+} > "$repo/build/adad-image.provenance.tmp"
+mv "$repo/build/adad-image.provenance.tmp" "$repo/build/adad-image.provenance"
 echo "image build: ok"

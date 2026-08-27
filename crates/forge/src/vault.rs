@@ -1,9 +1,9 @@
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -34,7 +34,7 @@ impl Vault {
             fs::create_dir_all(parent).map_err(io_error)?;
         }
 
-        let runtime = VaultRuntime::new(passphrase)?;
+        let runtime = VaultRuntime::new(passphrase);
         runtime.run(
             Command::new("truncate")
                 .arg("--size")
@@ -83,7 +83,7 @@ impl Vault {
     }
 
     pub fn unlock(path: &Path, passphrase: &str) -> Result<Unsealed, Error> {
-        let runtime = VaultRuntime::new(passphrase)?;
+        let runtime = VaultRuntime::new(passphrase);
         let loop_device = runtime.attach_loop_device(path)?;
         let mapper_name = mapper_name_for(path);
         let mapped_device = mapped_device_path(&mapper_name);
@@ -230,26 +230,13 @@ impl Drop for Unsealed {
 
 struct VaultRuntime {
     passphrase: SensitiveBytes,
-    passphrase_file: PathBuf,
 }
 
 impl VaultRuntime {
-    fn new(passphrase: &str) -> Result<Self, Error> {
-        let temp_root = env::temp_dir().join(format!("adad-vault-passphrase-{}", unique_suffix()));
-        fs::create_dir_all(&temp_root).map_err(io_error)?;
-
-        let passphrase_file = temp_root.join("passphrase.txt");
-        let mut file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&passphrase_file)
-            .map_err(io_error)?;
-        file.write_all(passphrase.as_bytes()).map_err(io_error)?;
-
-        Ok(Self {
+    fn new(passphrase: &str) -> Self {
+        Self {
             passphrase: SensitiveBytes::new(passphrase.as_bytes()),
-            passphrase_file,
-        })
+        }
     }
 
     fn attach_loop_device(&self, image_path: &Path) -> Result<PathBuf, Error> {
@@ -268,7 +255,7 @@ impl VaultRuntime {
     }
 
     fn luks_format(&self, loop_device: &Path) -> Result<(), Error> {
-        self.run(
+        self.run_with_passphrase(
             Command::new("cryptsetup")
                 .arg("luksFormat")
                 .arg("--type")
@@ -277,19 +264,19 @@ impl VaultRuntime {
                 .arg("argon2id")
                 .arg("--batch-mode")
                 .arg("--key-file")
-                .arg(&self.passphrase_file)
+                .arg("-")
                 .arg(loop_device),
         )
     }
 
     fn open_mapping(&self, loop_device: &Path, mapper_name: &str) -> Result<(), Error> {
-        self.run(
+        self.run_with_passphrase(
             Command::new("cryptsetup")
                 .arg("open")
                 .arg("--type")
                 .arg("luks2")
                 .arg("--key-file")
-                .arg(&self.passphrase_file)
+                .arg("-")
                 .arg(loop_device)
                 .arg(mapper_name),
         )
@@ -326,6 +313,24 @@ impl VaultRuntime {
         }
     }
 
+    fn run_with_passphrase(&self, command: &mut Command) -> Result<(), Error> {
+        let mut child = command.stdin(Stdio::piped()).spawn().map_err(io_error)?;
+        let mut stdin = child.stdin.take().ok_or(Error::Io)?;
+        if stdin.write_all(&self.passphrase.0).is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(Error::Io);
+        }
+        drop(stdin);
+
+        let status = child.wait().map_err(io_error)?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::Io)
+        }
+    }
+
     fn output(&self, command: &mut Command) -> Result<std::process::Output, Error> {
         let output = command.output().map_err(io_error)?;
         if output.status.success() {
@@ -339,10 +344,6 @@ impl VaultRuntime {
 impl Drop for VaultRuntime {
     fn drop(&mut self) {
         self.passphrase.zeroize();
-        let _ = fs::remove_file(&self.passphrase_file);
-        if let Some(parent) = self.passphrase_file.parent() {
-            let _ = fs::remove_dir(parent);
-        }
     }
 }
 
@@ -442,7 +443,14 @@ fn push_optional_secret(
 }
 
 fn escape_toml_string(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\u{0008}', "\\b")
+        .replace('\t', "\\t")
+        .replace('\n', "\\n")
+        .replace('\u{000C}', "\\f")
+        .replace('\r', "\\r")
 }
 
 fn mapped_device_path(mapper_name: &str) -> PathBuf {
@@ -510,6 +518,17 @@ mod tests {
 
         assert_eq!(parsed.config_version, CURRENT_CONFIG_VERSION);
         assert_eq!(parsed.provider, config.provider);
+    }
+
+    #[test]
+    fn config_renderer_round_trips_escaped_values() {
+        let mut config = default_config();
+        config.model = Some("line\nquote\"slash\\".to_owned());
+
+        let rendered = render_config(&config);
+        let parsed = adad_core::Config::from_toml_str(&rendered).expect("escaped config parses");
+
+        assert_eq!(parsed.model, config.model);
     }
 
     #[test]

@@ -9,14 +9,16 @@ if [ ! -f Cargo.toml ]; then
   echo "ERROR: no Cargo.toml yet. EP-001 creates the workspace first." >&2
   exit 1
 fi
-cargo build --workspace --release --target x86_64-unknown-linux-musl
-
 host_os=$(uname -s 2>/dev/null || echo unknown)
 if [ "$host_os" != "Linux" ]; then
+  cargo build --workspace --release
   echo "build: static verification skipped on host '$host_os'; Linux CI is authoritative"
+  echo "build: native release compilation completed"
   echo "build: ok"
   exit 0
 fi
+
+cargo build --workspace --release --target x86_64-unknown-linux-musl
 
 # Verify the binaries really are static (no NEEDED entries). Guards the
 # constraint automatically.

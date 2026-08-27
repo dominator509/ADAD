@@ -1,17 +1,28 @@
 # PRODUCTION_READINESS.md — ADAD
 
 ## Definition of production readiness
+
+Current status: **NO-GO**. The checklist is a release gate, not a statement
+that the completed historical ExecPlans prove production behavior. Pure models,
+mock transports, headless UI tests, and source-only verification do not satisfy
+the image, Linux-backend, external-service, or hardware criteria below.
+
 ADAD is production-ready when every ExecPlan has `status: complete`,
 `scripts/verify.sh` exits 0, and `scripts/production-readiness-check.sh` exits 0
-(which requires a bootable `build/adad.img` and a passing leak battery marker
-`build/leak-battery.pass`), and all operational docs/runbooks are present.
+(which requires a clean checkout, a bootable `build/adad.img`, provenance
+matching the current source tree, and an on-image leak battery marker whose
+image digest matches the tested image), and all operational docs/runbooks are
+present. The executable readiness check also refuses a pass while any checklist
+item below remains unchecked; plan completion and source-only tests are not
+substitutes for that evidence. Real hardware and external-service validation
+remain required.
 
 ## Functional readiness
 - [ ] Boot → use local/cloud agent → shutdown leaves zero host-disk trace.
 - [ ] Local `llama-server` inference works; provider switching (openai/venice)
       works over WireGuard.
-- [ ] XMR wallet ops and VPS provisioning function against mocks; real ops are
-      gated human actions.
+- [ ] Production XMR wallet RPC and VPS transports exist; mock tests alone do
+      not establish this. Real transfers/provisioning remain human-gated.
 - [ ] LUKS2 vault create/unlock/lock/seal works; DMS + panic wipe work.
 - [ ] Git publish uses the stable pseudonym with real metadata stripped.
 - [ ] All non-goals remain excluded (no MAC impersonation, no per-push rotation,
@@ -51,7 +62,9 @@ ADAD is production-ready when every ExecPlan has `status: complete`,
 - [ ] Alerts render for killswitch/tunnel/DMS/vault events.
 
 ## Deployment readiness
-- [ ] `live-build` recipe builds a bootable image reproducibly.
+- [ ] `live-build` inputs are immutably pinned and two clean isolated builds
+      produce the same image digest; deterministic timestamps alone are not
+      sufficient.
 - [ ] Imaging runbook present; device-write is human-gated.
 - [ ] Environment variables documented in ENVIRONMENT.md.
 

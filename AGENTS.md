@@ -80,7 +80,7 @@ nonzero and prints the blocker. Do not wait for a reply.
 - Do not invent package APIs, function names, methods, CLI flags, routes,
   config keys, environment variable names, or file paths.
 - Confirm every name by reading the repository (the crate source, `Cargo.toml`,
-  `COMMANDS.md`, the vendored claw-code crates, `ENVIRONMENT.md`).
+  `COMMANDS.md`, the pinned external dependencies, `ENVIRONMENT.md`).
 - Use only commands listed in COMMANDS.md. If one is missing, update COMMANDS.md
   with repository evidence first, then use it.
 - Record every assumption in the ExecPlan Decision Log and, if it affects the
@@ -108,7 +108,8 @@ Never patch blindly around the same error more than three times.
 
 Before adding any crate or system package:
 
-1. Check existing dependencies (`Cargo.toml`, the vendored claw-code crates).
+1. Check existing dependencies (`Cargo.toml`, the workspace lockfile, and any
+   vendored source that is actually present).
 2. Check whether existing tools already provide the capability.
 3. Add a dependency only if genuinely necessary.
 4. Prefer `no_std`-friendly, static-musl-compatible, well-audited crates.
