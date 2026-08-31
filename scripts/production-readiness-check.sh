@@ -12,8 +12,10 @@ fail() { echo "production readiness: FAIL - $1" >&2; exit 1; }
 # are allowed, but source changes must force a new image and new evidence.
 [ -z "$(git status --porcelain --untracked-files=all)" ] || fail "source checkout is dirty"
 
-# 1. Everything verify covers must pass.
-scripts/verify.sh >/dev/null
+# 1. Everything verify covers must pass in release-shaped mode.  Without these
+# variables, verify intentionally performs source-only integration and E2E
+# checks, which is insufficient for this gate even when an image is present.
+ADAD_REQUIRE_IMAGE=1 ADAD_REQUIRE_VAULT=1 scripts/verify.sh >/dev/null
 
 # 2. Every ExecPlan must be complete.
 for f in .agent/execplans/EP-*.md; do
@@ -39,6 +41,9 @@ source_tree=$(git rev-parse 'HEAD^{tree}') || fail "cannot resolve source tree"
 provenance_source_sha=$(sed -n 's/^source_sha=//p' build/adad-image.provenance | head -n 1)
 provenance_source_tree=$(sed -n 's/^source_tree=//p' build/adad-image.provenance | head -n 1)
 provenance_image_sha=$(sed -n 's/^image_sha256=//p' build/adad-image.provenance | head -n 1)
+provenance_debian_snapshot=$(sed -n 's/^debian_snapshot=//p' build/adad-image.provenance | head -n 1)
+provenance_llama_server_sha=$(sed -n 's/^llama_server_sha256=//p' build/adad-image.provenance | head -n 1)
+provenance_llama_model_sha=$(sed -n 's/^llama_model_sha256=//p' build/adad-image.provenance | head -n 1)
 actual_image_sha=$(sha256sum build/adad.img | awk '{print $1}')
 pass_battery=$(sed -n 's/^battery=//p' build/leak-battery.pass | head -n 1)
 pass_source_sha=$(sed -n 's/^source_sha=//p' build/leak-battery.pass | head -n 1)
@@ -47,6 +52,9 @@ pass_image_sha=$(sed -n 's/^image_sha256=//p' build/leak-battery.pass | head -n 
 [ "$provenance_source_sha" = "$source_sha" ] || fail "image was not built from current HEAD"
 [ "$provenance_source_tree" = "$source_tree" ] || fail "image source tree does not match current HEAD"
 [ "$provenance_image_sha" = "$actual_image_sha" ] || fail "image digest does not match provenance"
+[ "$provenance_debian_snapshot" = "20260801T000000Z" ] || fail "image provenance does not identify the pinned Debian snapshot"
+printf '%s\n' "$provenance_llama_server_sha" | grep -Eq '^[[:xdigit:]]{64}$' || fail "image provenance has no valid llama-server hash"
+printf '%s\n' "$provenance_llama_model_sha" | grep -Eq '^[[:xdigit:]]{64}$' || fail "image provenance has no valid llama model hash"
 [ "$pass_battery" = "on-image" ] || fail "leak marker is not an on-image result"
 [ "$pass_source_sha" = "$source_sha" ] || fail "leak marker source SHA does not match HEAD"
 [ "$pass_image_sha" = "$actual_image_sha" ] || fail "leak marker image digest does not match image"

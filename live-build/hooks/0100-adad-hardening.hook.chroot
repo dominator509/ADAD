@@ -2,7 +2,7 @@
 set -eu
 
 mkdir -p /etc/nftables.d /etc/sysctl.d /etc/tor/torrc.d /usr/local/sbin \
-  /etc/systemd/system /etc/wireguard
+  /etc/systemd/system /etc/wireguard /usr/local/lib/adad/llama /var/lib/adad/models
 
 cat > /etc/sysctl.d/10-adad-disable-ipv6.conf <<'EOF'
 net.ipv6.conf.all.disable_ipv6 = 1
@@ -32,6 +32,30 @@ table inet adad_killswitch {
     meta skuid "debian-tor" accept
     udp dport { 53, 5353, 1900, 137, 138 } drop
     tcp dport { 139, 445 } drop
+  }
+}
+EOF
+
+# This is deliberately a separate, stricter ruleset. The link monitor loads it
+# after a down/deleted event; flushing only the normal table would remove its
+# drop-policy chains and could turn the boundary into accept-by-default.
+cat > /etc/nftables.d/adad-killswitch-drop.nft <<'EOF'
+flush ruleset
+
+table inet adad_killswitch {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iifname "lo" accept
+    ct state established,related accept
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+  }
+
+  chain output {
+    type filter hook output priority 0; policy drop;
+    oifname "lo" accept
   }
 }
 EOF
@@ -87,6 +111,70 @@ printf '%s\n' 'adad-mac: randomized' > /dev/console || true
 EOF
 chmod 0755 /usr/local/sbin/adad-killswitch-boot
 
+cat > /usr/local/sbin/adad-llama-start <<'EOF'
+#!/bin/sh
+set -eu
+
+[ -x /usr/local/bin/llama-server ] || {
+  echo 'ADAD local model runtime is missing.' >&2
+  exit 1
+}
+[ -r /var/lib/adad/models/default.gguf ] || {
+  echo 'ADAD local model artifact is missing.' >&2
+  exit 1
+}
+exec /usr/local/bin/llama-server \
+  --model /var/lib/adad/models/default.gguf \
+  --host 127.0.0.1 \
+  --port 8080
+EOF
+chmod 0755 /usr/local/sbin/adad-llama-start
+
+cat > /etc/systemd/system/adad-llama.service <<'EOF'
+[Unit]
+Description=ADAD local llama.cpp inference server
+Requires=adad-killswitch.service
+After=adad-killswitch.service network.target
+ConditionPathExists=/usr/local/bin/llama-server
+ConditionPathExists=/var/lib/adad/models/default.gguf
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+ExecStart=/usr/local/sbin/adad-llama-start
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/adad-killswitch-monitor.service <<'EOF'
+[Unit]
+Description=ADAD dynamic fail-closed link monitor
+Requires=adad-killswitch.service
+After=adad-killswitch.service network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/leakguard monitor
+Restart=always
+RestartSec=1
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 cat > /usr/local/sbin/adad-leak-battery <<'EOF'
 #!/bin/sh
 set -eu
@@ -109,11 +197,69 @@ require_cmd nft
 require_cmd ip
 require_cmd sysctl
 require_cmd systemctl
+require_cmd timeout
+require_cmd cryptsetup
+require_cmd losetup
+require_cmd mkfs.ext4
+require_cmd mount
+require_cmd umount
+require_cmd truncate
+require_cmd git
+require_cmd tor
+require_cmd wg
+require_cmd wg-quick
+require_cmd llama-server
+[ -r /var/lib/adad/models/default.gguf ] || console_fail "llama-model"
+systemctl is-enabled adad-llama.service >/dev/null 2>&1 || console_fail "llama-enabled"
+systemctl is-active --quiet adad-llama.service || console_fail "llama-active"
+console_pass "llama-runtime"
+
+systemctl is-enabled adad-killswitch-monitor.service >/dev/null 2>&1 || console_fail "killswitch-monitor-enabled"
+systemctl is-active --quiet adad-killswitch-monitor.service || console_fail "killswitch-monitor-active"
+console_pass "killswitch-monitor"
 
 for tool in agent-coding forge git-spoof leakguard metafuse persona vps-deploy xmr-wallet; do
   [ -x "/usr/local/bin/$tool" ] || console_fail "tool-$tool"
+  "/usr/local/bin/$tool" --help 2>/dev/null | grep -q 'Usage:' || console_fail "help-$tool"
 done
 console_pass "static-tools"
+
+/usr/local/bin/leakguard status >/dev/null 2>&1 || console_fail "dispatch-leakguard"
+/usr/local/bin/leakguard wireguard status >/dev/null 2>&1 || console_fail "dispatch-wireguard"
+/usr/local/bin/metafuse scrub /etc/hostname >/dev/null 2>&1 || console_fail "dispatch-metafuse"
+/usr/local/bin/git-spoof rewrite-metadata 'ADAD image smoke' >/dev/null 2>&1 || console_fail "dispatch-git-spoof"
+git_smoke_dir=$(mktemp -d)
+trap 'rm -rf "$git_smoke_dir"' EXIT HUP INT TERM
+git -C "$git_smoke_dir" init -q || console_fail "git-spoof-init"
+git -C "$git_smoke_dir" config commit.gpgsign false || console_fail "git-spoof-config"
+printf '%s\n' 'ADAD image smoke' > "$git_smoke_dir/tracked.txt"
+git -C "$git_smoke_dir" add -- tracked.txt || console_fail "git-spoof-add"
+(
+  cd "$git_smoke_dir"
+  ADAD_PSEUDONYM=image-smoke \
+  ADAD_GIT_AUTHOR_NAME='Image Smoke' \
+  ADAD_GIT_AUTHOR_EMAIL=image-smoke@example.invalid \
+    /usr/local/bin/git-spoof commit 'ADAD image smoke' >/dev/null 2>&1
+) || console_fail "git-spoof-commit"
+git -C "$git_smoke_dir" show -s --format='%an%n%ae%n%aI%n%cn%n%ce%n%cI' |
+  grep -Fx 'Image Smoke' >/dev/null || console_fail "git-spoof-identity"
+git -C "$git_smoke_dir" show -s --format='%an%n%ae%n%aI%n%cn%n%ce%n%cI' |
+  grep -Fx 'image-smoke@example.invalid' >/dev/null || console_fail "git-spoof-email"
+git -C "$git_smoke_dir" show -s --format='%aI%n%cI' |
+  grep -Fx '2000-01-01T00:00:00Z' >/dev/null || console_fail "git-spoof-timestamp"
+console_pass "git-spoof-commit"
+dms_smoke_image="$git_smoke_dir/dms.img"
+printf 'LUKS\272\276\000\002' > "$dms_smoke_image"
+truncate -s 256 "$dms_smoke_image"
+dms_output=$(/usr/local/bin/leakguard dms evaluate-image "$dms_smoke_image" 128 1000 1061 60) || console_fail "dms-image-evaluate"
+printf '%s\n' "$dms_output" | grep -Fx 'dms=Expired header_wiped=true image_only=true' >/dev/null || console_fail "dms-image-wipe"
+console_pass "dms-image"
+if ! timeout 30 /usr/local/bin/agent-coding chat 'Write exactly the word ok.' \
+  >/tmp/adad-agent-chat.out 2>/tmp/adad-agent-chat.err; then
+  console_fail "agent-chat"
+fi
+[ -s /tmp/adad-agent-chat.out ] || console_fail "agent-chat-empty"
+console_pass "agent-chat"
 
 [ "$(sysctl -n net.ipv6.conf.all.disable_ipv6)" = "1" ] || console_fail "ipv6-all"
 [ "$(sysctl -n net.ipv6.conf.default.disable_ipv6)" = "1" ] || console_fail "ipv6-default"
@@ -165,6 +311,10 @@ if [ -n "$drop_iface" ]; then
   rules_after=$(nft list ruleset)
   printf '%s\n' "$rules_after" | grep -q 'table inet adad_killswitch' || console_fail "drop-nft-table"
   printf '%s\n' "$rules_after" | grep -q 'policy drop' || console_fail "drop-nft-policy"
+  printf '%s\n' "$rules_after" | grep -q 'oifname "lo" accept' || console_fail "drop-loopback"
+  if printf '%s\n' "$rules_after" | grep -q 'oifname "wg0" accept'; then
+    console_fail "drop-wireguard-allow"
+  fi
   if timeout 5 ping -4 -c 1 -W 1 1.1.1.1 >/tmp/adad-drop-ping.log 2>&1; then
     console_fail "drop-clearnet"
   fi
@@ -201,7 +351,8 @@ cat > /etc/systemd/system/adad-leak-battery.service <<'EOF'
 Description=ADAD on-image leak battery
 ConditionKernelCommandLine=adad.leak_battery=1
 Requires=adad-killswitch.service
-After=adad-killswitch.service tor.service network.target
+Requires=adad-llama.service
+After=adad-killswitch.service adad-llama.service tor.service network.target
 
 [Service]
 Type=oneshot
@@ -215,5 +366,7 @@ WantedBy=multi-user.target
 EOF
 
 systemctl enable adad-killswitch.service
+systemctl enable adad-killswitch-monitor.service
 systemctl enable adad-leak-battery.service
+systemctl enable adad-llama.service
 systemctl enable tor.service

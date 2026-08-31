@@ -30,9 +30,11 @@ pub struct Unsealed {
 
 impl Vault {
     pub fn create(path: &Path, passphrase: &str) -> Result<(), Error> {
+        validate_image_target(path, true)?;
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(io_error)?;
         }
+        validate_image_target(path, true)?;
 
         let runtime = VaultRuntime::new(passphrase);
         runtime.run(
@@ -83,6 +85,7 @@ impl Vault {
     }
 
     pub fn unlock(path: &Path, passphrase: &str) -> Result<Unsealed, Error> {
+        validate_image_target(path, false)?;
         let runtime = VaultRuntime::new(passphrase);
         let loop_device = runtime.attach_loop_device(path)?;
         let mapper_name = mapper_name_for(path);
@@ -113,6 +116,7 @@ impl Vault {
     }
 
     pub fn upgrade_in_place(path: &Path, passphrase: &str) -> Result<PathBuf, Error> {
+        validate_image_target(path, false)?;
         let backup_path = backup_path_for(path);
         fs::copy(path, &backup_path).map_err(io_error)?;
 
@@ -496,11 +500,42 @@ fn io_error(_: std::io::Error) -> Error {
     Error::Io
 }
 
+fn validate_image_target(path: &Path, allow_missing: bool) -> Result<(), Error> {
+    if path.as_os_str().is_empty() {
+        return Err(Error::Io);
+    }
+
+    let target_result = match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_file() => Ok(()),
+        Ok(_) => Err(Error::Io),
+        Err(error) if allow_missing && error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(Error::Io),
+    };
+    target_result?;
+
+    let mut ancestor = path.parent();
+    while let Some(directory) = ancestor {
+        match fs::symlink_metadata(directory) {
+            Ok(metadata) if metadata.file_type().is_dir() => {}
+            Ok(_) => return Err(Error::Io),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(Error::Io),
+        }
+        ancestor = directory.parent();
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::Path;
 
-    use super::{backup_path_for, default_config, render_config, Vault, CURRENT_CONFIG_VERSION};
+    use super::{
+        backup_path_for, default_config, render_config, validate_image_target, Vault,
+        CURRENT_CONFIG_VERSION,
+    };
 
     #[test]
     fn backup_paths_keep_the_original_name_and_add_bak_suffix() {
@@ -537,5 +572,51 @@ mod tests {
             Vault::backup_path_for(Path::new("/tmp/vault.img")),
             Path::new("/tmp/vault.img.bak")
         );
+    }
+
+    #[test]
+    fn image_target_validation_accepts_missing_create_target() {
+        let path =
+            std::env::temp_dir().join(format!("adad-forge-missing-{}", super::unique_suffix()));
+
+        assert_eq!(validate_image_target(&path, true), Ok(()));
+    }
+
+    #[test]
+    fn image_target_validation_rejects_directories_and_missing_unlock_targets() {
+        let root =
+            std::env::temp_dir().join(format!("adad-forge-target-{}", super::unique_suffix()));
+        fs::create_dir(&root).expect("test directory creates");
+
+        assert!(validate_image_target(&root, true).is_err());
+        assert!(validate_image_target(&root.join("missing.img"), false).is_err());
+
+        fs::remove_dir(&root).expect("test directory removes");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn image_target_validation_rejects_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let root =
+            std::env::temp_dir().join(format!("adad-forge-symlink-{}", super::unique_suffix()));
+        fs::create_dir(&root).expect("test directory creates");
+        let target = root.join("target.img");
+        fs::write(&target, b"not a vault").expect("target file writes");
+        let link = root.join("link.img");
+        symlink(&target, &link).expect("test symlink creates");
+
+        let real_parent = root.join("real-parent");
+        fs::create_dir(&real_parent).expect("real parent creates");
+        let linked_parent = root.join("linked-parent");
+        symlink(&real_parent, &linked_parent).expect("parent symlink creates");
+        let nested_target = linked_parent.join("nested.img");
+
+        assert!(validate_image_target(&link, true).is_err());
+        assert!(validate_image_target(&link, false).is_err());
+        assert!(validate_image_target(&nested_target, true).is_err());
+
+        fs::remove_dir_all(&root).expect("test directory removes");
     }
 }

@@ -9,6 +9,9 @@ use loop_image::LoopImageHarness;
 #[test]
 fn vault_write_api_rejects_paths_outside_the_mount_root() {
     if let Some(reason) = runtime_skip_reason() {
+        if std::env::var("ADAD_REQUIRE_VAULT").as_deref() == Ok("1") {
+            panic!("vault integration is required but unavailable: {reason}");
+        }
         eprintln!("vault_boundary skipped: {reason}");
         return;
     }

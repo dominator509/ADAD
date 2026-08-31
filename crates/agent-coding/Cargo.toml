@@ -7,8 +7,12 @@ publish.workspace = true
 
 [dependencies]
 adad-core = { path = "../adad-core" }
-rmcp = { version = "2.1.0", features = ["server", "transport-io"] }
-ratatui = { version = "0.30.0", default-features = false, features = ["std"] }
+rmcp = { version = "2.1.0", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-client-reqwest"] }
+ratatui = { version = "0.30.0", default-features = false, features = ["std", "crossterm"] }
+crossterm = "0.29"
+rustls = { version = "0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1.52.3", features = ["process", "rt", "time"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "stream", "rustls-no-provider"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }

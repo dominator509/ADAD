@@ -7,6 +7,9 @@ use loop_image::LoopImageHarness;
 #[test]
 fn failure_wrong_passphrase_leaves_vault_locked() {
     if let Some(reason) = runtime_skip_reason() {
+        if std::env::var("ADAD_REQUIRE_VAULT").as_deref() == Ok("1") {
+            panic!("vault integration is required but unavailable: {reason}");
+        }
         eprintln!("failure_wrong_passphrase skipped: {reason}");
         return;
     }

@@ -1,8 +1,12 @@
 # EP-009 M1 minimal Debian-Live package set.
 ca-certificates
+cryptsetup
+e2fsprogs
+git
 iproute2
 live-boot
 nftables
 systemd-sysv
 tor
+util-linux
 wireguard-tools

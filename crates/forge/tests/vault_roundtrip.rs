@@ -26,13 +26,12 @@ fn loop_image_harness_exposes_distinct_paths_and_mapper_name() {
 #[test]
 fn command_shapes_match_expected_loopback_luks_flow() {
     let harness = LoopImageHarness::new();
-    let passphrase_file = Path::new("/tmp/passphrase.txt");
     let loop_device = Path::new("/dev/loop7");
 
     let truncate = harness.create_sparse_image_command(64);
     let losetup = harness.attach_loop_command();
-    let luks_format = harness.luks_format_command(loop_device, passphrase_file);
-    let unlock = harness.unlock_command(loop_device, passphrase_file);
+    let luks_format = harness.luks_format_command(loop_device);
+    let unlock = harness.unlock_command(loop_device);
     let lock = harness.lock_command();
     let make_filesystem = harness.make_filesystem_command();
     let mount = harness.mount_command();
@@ -79,7 +78,7 @@ fn command_shapes_match_expected_loopback_luks_flow() {
             "argon2id".to_string(),
             "--batch-mode".to_string(),
             "--key-file".to_string(),
-            passphrase_file.display().to_string(),
+            "-".to_string(),
             loop_device.display().to_string(),
         ]
     );
@@ -95,7 +94,7 @@ fn command_shapes_match_expected_loopback_luks_flow() {
             "--type".to_string(),
             "luks2".to_string(),
             "--key-file".to_string(),
-            passphrase_file.display().to_string(),
+            "-".to_string(),
             loop_device.display().to_string(),
             harness.mapper_name().to_string(),
         ]
@@ -167,6 +166,9 @@ fn helper_reports_missing_host_tools_without_touching_real_devices() {
 #[test]
 fn vault_roundtrip_runs_when_linux_host_tools_are_available() {
     if let Some(reason) = runtime_skip_reason() {
+        if std::env::var("ADAD_REQUIRE_VAULT").as_deref() == Ok("1") {
+            panic!("vault integration is required but unavailable: {reason}");
+        }
         eprintln!("vault_roundtrip skipped: {reason}");
         return;
     }
@@ -196,6 +198,9 @@ fn vault_roundtrip_runs_when_linux_host_tools_are_available() {
 #[test]
 fn wrong_passphrase_fails_cleanly_when_runtime_is_available() {
     if let Some(reason) = runtime_skip_reason() {
+        if std::env::var("ADAD_REQUIRE_VAULT").as_deref() == Ok("1") {
+            panic!("vault integration is required but unavailable: {reason}");
+        }
         eprintln!("vault_roundtrip skipped: {reason}");
         return;
     }

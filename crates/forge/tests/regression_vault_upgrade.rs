@@ -9,6 +9,9 @@ use loop_image::LoopImageHarness;
 #[test]
 fn regression_vault_upgrade_keeps_backup_and_payload() {
     if let Some(reason) = runtime_skip_reason() {
+        if std::env::var("ADAD_REQUIRE_VAULT").as_deref() == Ok("1") {
+            panic!("vault integration is required but unavailable: {reason}");
+        }
         eprintln!("regression_vault_upgrade skipped: {reason}");
         return;
     }

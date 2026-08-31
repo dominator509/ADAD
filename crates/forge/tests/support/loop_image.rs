@@ -89,7 +89,7 @@ impl LoopImageHarness {
         command
     }
 
-    pub fn luks_format_command(&self, loop_device: &Path, passphrase_file: &Path) -> Command {
+    pub fn luks_format_command(&self, loop_device: &Path) -> Command {
         let mut command = Command::new("cryptsetup");
         command
             .arg("luksFormat")
@@ -99,19 +99,19 @@ impl LoopImageHarness {
             .arg("argon2id")
             .arg("--batch-mode")
             .arg("--key-file")
-            .arg(passphrase_file)
+            .arg("-")
             .arg(loop_device);
         command
     }
 
-    pub fn unlock_command(&self, loop_device: &Path, passphrase_file: &Path) -> Command {
+    pub fn unlock_command(&self, loop_device: &Path) -> Command {
         let mut command = Command::new("cryptsetup");
         command
             .arg("open")
             .arg("--type")
             .arg("luks2")
             .arg("--key-file")
-            .arg(passphrase_file)
+            .arg("-")
             .arg(loop_device)
             .arg(self.mapper_name());
         command

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::process::Command;
 
 use adad_core::Error;
 use agent_coding::{
@@ -61,6 +62,30 @@ fn status_accuracy_query_failure_becomes_unknown_not_stale_ok() {
     assert!(latest.contains("Tor: unknown"));
     assert!(latest.contains("Monero: down"));
     assert!(!latest.contains("Tor: ready"));
+}
+
+#[test]
+fn shipped_status_uses_runtime_provider_selection_and_rejects_invalid_provider() {
+    let invalid = Command::new(env!("CARGO_BIN_EXE_agent-coding"))
+        .arg("status")
+        .env("ADAD_PROVIDER", "not-a-provider")
+        .output()
+        .expect("status binary should launch");
+    assert!(!invalid.status.success());
+    assert_eq!(invalid.status.code(), Some(10));
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("provider"));
+
+    let venice = Command::new(env!("CARGO_BIN_EXE_agent-coding"))
+        .arg("status")
+        .env("ADAD_PROVIDER", "venice")
+        .env("ADAD_MODEL", "venice-private-coder")
+        .env("ADAD_VENICE_BASE_URL", "https://api.example.invalid/api/v1")
+        .output()
+        .expect("status binary should launch");
+    assert!(venice.status.success());
+    let stdout = String::from_utf8_lossy(&venice.stdout);
+    assert!(stdout.contains("Provider: venice"));
+    assert!(stdout.contains("Model: venice-private-coder"));
 }
 
 struct MapProbe {

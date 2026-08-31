@@ -1,9 +1,74 @@
+use std::fs;
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use leakguard::{
-    panic_wipe, Dms, DmsOutcome, DmsState, LocalClockTime, LuksHeaderImage, PanicWipeReport,
-    RamSecret, TorNtpTime,
+    panic_wipe, panic_wipe_file, Dms, DmsOutcome, DmsState, LocalClockTime, LuksHeaderFile,
+    LuksHeaderImage, PanicWipeReport, RamSecret, TorNtpTime,
 };
+
+#[test]
+fn dms_expiry_wipes_a_real_luks2_image_header_and_preserves_payload() {
+    let path = unique_image_path();
+    let mut bytes = vec![0xAA; 128];
+    bytes[..6].copy_from_slice(b"LUKS\xBA\xBE");
+    bytes[6..8].copy_from_slice(&2_u16.to_be_bytes());
+    bytes.extend([0xBB; 128]);
+    fs::write(&path, &bytes).expect("write disposable image");
+
+    let mut image = LuksHeaderFile::open(&path, 128).expect("open LUKS2 image");
+    let mut dms = Dms::new(
+        Duration::from_secs(60),
+        TorNtpTime::from_unix_seconds(1_000),
+    )
+    .expect("DMS");
+    let outcome = dms
+        .evaluate_file(
+            TorNtpTime::from_unix_seconds(1_061),
+            LocalClockTime::from_unix_seconds(0),
+            &mut image,
+        )
+        .expect("DMS evaluation");
+
+    assert_eq!(outcome, DmsOutcome::Expired { header_wiped: true });
+    let after = fs::read(&path).expect("read disposable image");
+    assert!(after[..128].iter().all(|byte| *byte == 0));
+    assert!(after[128..].iter().all(|byte| *byte == 0xBB));
+    fs::remove_file(path).expect("remove disposable image");
+}
+
+#[test]
+fn image_backend_rejects_non_luks_files() {
+    let path = unique_image_path();
+    fs::write(&path, vec![0_u8; 256]).expect("write non-LUKS file");
+
+    assert!(LuksHeaderFile::open(&path, 128).is_err());
+
+    fs::remove_file(path).expect("remove non-LUKS file");
+}
+
+#[test]
+fn panic_wipe_file_wipes_ram_and_only_the_image_header() {
+    let path = unique_image_path();
+    let mut bytes = vec![0xAA; 128];
+    bytes[..6].copy_from_slice(b"LUKS\xBA\xBE");
+    bytes[6..8].copy_from_slice(&2_u16.to_be_bytes());
+    bytes.extend([0xBB; 128]);
+    fs::write(&path, &bytes).expect("write disposable image");
+
+    let mut image = LuksHeaderFile::open(&path, 128).expect("open LUKS2 image");
+    let mut secrets = vec![RamSecret::new(vec![1, 2, 3, 4])];
+    let report = panic_wipe_file(&mut secrets, &mut image).expect("panic wipe image");
+
+    assert_eq!(report.ram_wiped_count, 1);
+    assert!(report.header_wiped);
+    assert!(report.image_only);
+    assert!(secrets[0].is_wiped());
+    let after = fs::read(&path).expect("read disposable image");
+    assert!(after[..128].iter().all(|byte| *byte == 0));
+    assert!(after[128..].iter().all(|byte| *byte == 0xBB));
+    fs::remove_file(path).expect("remove disposable image");
+}
 
 #[test]
 fn dms_expiry_wipes_luks_header_on_image_only() {
@@ -136,4 +201,12 @@ fn test_image() -> LuksHeaderImage {
     let mut bytes = vec![0xAA; 128];
     bytes.extend([0xBB; 128]);
     LuksHeaderImage::new(bytes, 128).expect("test image")
+}
+
+fn unique_image_path() -> std::path::PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock should be after epoch")
+        .as_nanos();
+    std::env::temp_dir().join(format!("adad-dms-image-{}-{nanos}.img", std::process::id()))
 }

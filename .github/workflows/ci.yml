@@ -3,6 +3,25 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      llama_model_url:
+        description: HTTPS URL for the reviewed GGUF model artifact
+        required: true
+        type: string
+      llama_model_sha256:
+        description: SHA-256 of the reviewed GGUF model artifact
+        required: true
+        type: string
+      llama_cpp_archive_sha256:
+        description: SHA-256 of the selected llama.cpp release archive
+        required: true
+        type: string
+      llama_cpp_release_tag:
+        description: Reviewed llama.cpp release tag
+        required: true
+        default: b9892
+        type: string
 
 jobs:
   source-verify:
@@ -11,8 +30,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Verify shell entrypoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          git ls-files --stage -- '*.sh' \
+            | awk '$1 != "100755" { print $4; invalid = 1 } END { exit invalid }'
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.90.0
         with:
           targets: x86_64-unknown-linux-musl
       - name: Install cargo-audit
@@ -21,18 +46,50 @@ jobs:
         run: sh scripts/verify.sh
 
   release-image:
+    # A release image needs reviewed model/runtime inputs that are deliberately
+    # not committed to this repository. Keep this job explicit and manual;
+    # ordinary pushes and pull requests still run the source job above.
+    if: github.event_name == 'workflow_dispatch'
     needs: source-verify
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      ADAD_LLAMA_CPP_RELEASE_TAG: ${{ inputs.llama_cpp_release_tag }}
+      ADAD_LLAMA_CPP_ARCHIVE_SHA256: ${{ inputs.llama_cpp_archive_sha256 }}
+      ADAD_LLAMA_RUNTIME_DIR: build/tools/llama.cpp/${{ inputs.llama_cpp_release_tag }}
+      ADAD_LLAMA_MODEL_SOURCE: build/models/default.gguf
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.90.0
         with:
           targets: x86_64-unknown-linux-musl
       - name: Install cargo-audit
         uses: taiki-e/install-action@cargo-audit
+      - name: Install vault integration tools
+        run: sudo apt-get update && sudo apt-get install -y cryptsetup e2fsprogs util-linux
+      - name: Stage reviewed local model
+        env:
+          MODEL_URL: ${{ inputs.llama_model_url }}
+          MODEL_SHA256: ${{ inputs.llama_model_sha256 }}
+        run: |
+          set -euo pipefail
+          case "$MODEL_URL" in
+            https://*) ;;
+            *) echo "model URL must use HTTPS" >&2; exit 1 ;;
+          esac
+          if [[ ! "$MODEL_SHA256" =~ ^[[:xdigit:]]{64}$ ]]; then
+            echo "model SHA-256 must be exactly 64 hexadecimal characters" >&2
+            exit 1
+          fi
+          mkdir -p build/models
+          curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            "$MODEL_URL" --output build/models/default.gguf
+          printf '%s  %s\n' "$MODEL_SHA256" build/models/default.gguf \
+            | sha256sum --check --strict
+      - name: Fetch reviewed llama.cpp runtime
+        run: sh scripts/fetch-llama-cpp-runtime.sh
       - name: Build static tools
         run: sh scripts/build.sh
       - name: Build image builder
@@ -42,6 +99,7 @@ jobs:
       - name: Verify exact release image
         env:
           ADAD_REQUIRE_IMAGE: "1"
+          ADAD_REQUIRE_VAULT: "1"
         run: sh scripts/verify.sh
       - name: Verify release provenance
         run: sh scripts/production-readiness-check.sh

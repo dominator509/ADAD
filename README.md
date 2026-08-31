@@ -8,16 +8,20 @@ explicit privacy and fail-closed networking design.
 
 ADAD is not production-ready and must not be described as a completed secure
 operating system. The repository currently contains tested library contracts,
-pure security/state models, mock service integrations, a live-build recipe, and
-static Rust tool builds. The shipped tool entrypoints and several Linux/external
-adapters still require production integration.
+bounded production adapters, pure security/state models, a live-build recipe,
+and static Rust tool builds. The shipped agent `chat` and interactive TUI now
+drive the bounded loop with read-only workspace tools. The Linux MetaFUSE
+adapter exposes a read-only scrubbed FUSE view; live `/dev/fuse` image
+validation and several other Linux/external adapters still require production
+evidence.
 
 In particular, the following are release gates rather than claims established
 by the unit suite:
 
 - a real local `llama-server` runtime and end-to-end agent session;
 - real WireGuard lifecycle and packet-level leak validation;
-- Linux-backed FUSE, DMS, panic, and netlink behavior;
+- live `/dev/fuse` FUSE mounting, production DMS/device destruction, panic/kexec,
+  and packet-level netlink behavior;
 - real wallet RPC and SSH transports behind human confirmation;
 - zero-host-write, representative hardware, reproducibility, and performance
   evidence.

@@ -10,6 +10,15 @@ qemu_smp="${ADAD_QEMU_SMP:-2}"
 boot_timeout="${ADAD_BOOT_TIMEOUT:-180}"
 leak_timeout="${ADAD_LEAK_BATTERY_TIMEOUT:-240}"
 tmp_root="${ADAD_SIM_TMPDIR:-/workspace/build/min-system-sim-tmp}"
+require_inference="${ADAD_REQUIRE_INFERENCE:-0}"
+
+case "$require_inference" in
+  0|1) ;;
+  *)
+    echo "ERROR: ADAD_REQUIRE_INFERENCE must be 0 or 1." >&2
+    exit 1
+    ;;
+esac
 
 mkdir -p "$tmp_root"
 
@@ -133,6 +142,16 @@ measure_leak_ms() {
   exit 1
 }
 
+inference_result() {
+  code="$1"
+  note="$2"
+  if [ "$require_inference" = "1" ]; then
+    echo "ERROR: required inference acceptance failed [$code]: $note" >&2
+    exit 1
+  fi
+  printf 'skipped:%s\t\t\t%s' "$code" "$note"
+}
+
 measure_inference() {
   gguf="${ADAD_PERF_GGUF:-}"
   hf_model="${ADAD_PERF_HF_MODEL:-}"
@@ -143,15 +162,15 @@ measure_inference() {
     sh scripts/fetch-llama-cpp-runtime.sh >"$tmp_root/adad-min-sim-llama-runtime.log"
     llama_server_bin="build/tools/llama.cpp/${ADAD_LLAMA_CPP_RELEASE_TAG:-b9892}/llama-server"
   elif [ -z "$gguf" ]; then
-    printf 'skipped:no-gguf\t\t\tno GGUF fixture or HF model supplied'
+    inference_result no-gguf 'no GGUF fixture or HF model supplied'
     return 0
   elif [ ! -f "$gguf" ]; then
-    printf 'skipped:missing-gguf\t\t\tmissing GGUF fixture: %s' "$gguf"
+    inference_result missing-gguf "missing GGUF fixture: $gguf"
     return 0
   fi
 
   if ! command -v "$llama_server_bin" >/dev/null 2>&1 && [ ! -x "$llama_server_bin" ]; then
-    printf 'skipped:no-llama-server\t\t\tllama-server unavailable in builder'
+    inference_result no-llama-server 'llama-server unavailable in builder'
     return 0
   fi
 
@@ -190,7 +209,7 @@ measure_inference() {
       note="$note; see $server_log"
     fi
     cleanup_pid "$server_pid"
-    printf 'skipped:llama-server-not-ready\t\t\t%s' "$note"
+    inference_result llama-server-not-ready "$note"
     return 0
   fi
 
@@ -204,7 +223,7 @@ measure_inference() {
   cleanup_pid "$server_pid"
 
   if [ -z "$completion_tokens" ] || [ "$elapsed_ms" -le 0 ]; then
-    printf 'skipped:parse-failed\t\t\tcould not parse completion_tokens from %s' "$response"
+    inference_result parse-failed "could not parse completion_tokens from $response"
     return 0
   fi
 
