@@ -772,13 +772,15 @@ from provider, network, and I/O failures.
   `tests/e2e/`, and `tests/os/`, `.github/workflows/ci.yml`, and this plan.
 - Exact edits expected: record mode `100755` for every tracked `.sh` entrypoint
   without changing its content; add a source-job guard that fails if a tracked
-  shell entrypoint loses its executable mode. Do not weaken or skip any
-  verifier step.
+  shell entrypoint loses its executable mode; install the `rustfmt` and
+  `clippy` components required by the existing verifier for the pinned Rust
+  toolchain. Do not weaken or skip any verifier step.
 - Validation command: `scripts/preflight.sh`, `scripts/verify.sh`, and
   `git diff --check`.
 - Expected result: a clean Linux checkout can invoke the nested verification
-  scripts, the same source verifier exits 0, and a future mode regression is
-  reported before Rust or release work begins.
+  scripts with the pinned toolchain, the same source verifier exits 0, and a
+  future mode or toolchain-component regression is reported before release
+  work begins.
 - Recovery: if the guard reports a path, restore only that path's tracked
   executable mode; do not replace direct execution with a skipped test.
 
@@ -848,8 +850,8 @@ from provider, network, and I/O failures.
   scrubbed ownership/timestamps, hidden xattrs, symlink/special-file rejection,
   and an explicit `metafuse mount` command; Linux target compilation and native
   policy tests pass, while live `/dev/fuse` mounting remains external.
-- [ ] M29 restores Linux CI shell-entrypoint execution and adds a guard against
-  mode regression.
+- [ ] M29 restores Linux CI shell-entrypoint execution, installs the verifier's
+  pinned-toolchain components, and adds guards against both regressions.
 
 ## 11. Idempotence and Recovery
 
@@ -927,9 +929,9 @@ repository three-strike rule and preserve the first exact error in this plan.
   `cargo check -p metafuse --target x86_64-unknown-linux-musl`: passing);
   source-only verification remains green and live FUSE/image evidence remains
   external.
-- [ ] M29 — GitHub Actions source verification is blocked by the committed
-  non-executable shell modes until the mode-only fix is published; local
-  `scripts/verify.sh` passes after the fix.
+- [ ] M29 — GitHub Actions source verification now passes the shell-mode guard;
+  the hosted run then exposed missing `rustfmt`/`clippy` components for the
+  pinned toolchain. Both CI inputs remain to be re-run after this correction.
 
 ## 13. Surprises & Discoveries
 
@@ -1164,6 +1166,11 @@ repository three-strike rule and preserve the first exact error in this plan.
   denied`. The repository tracked all POSIX shell entrypoints as `100644`.
   The remediation records their existing executable contract as `100755` and
   adds a CI guard; no verifier step is skipped or changed to a model-only pass.
+- 2026-08-31: The first hosted run of the M29 commit confirmed the shell guard
+  and then failed because the pinned Rust action installed only its minimal
+  profile, leaving `cargo-fmt` unavailable to `scripts/format-check.sh`.
+  The workflow now requests the existing verifier's `rustfmt` and `clippy`
+  components explicitly in both source and release jobs.
 
 ## 15. Outcomes & Retrospective
 
@@ -1206,6 +1213,6 @@ keeps the pure policy as its source of scrubbed attributes. Source compilation
 and policy tests pass, but live `/dev/fuse` mounting, on-image behavior, and
 payload-level EXIF rewriting remain release evidence gaps.
 M29 restores the tracked executable mode required by fresh Linux checkouts and
-adds an early CI guard for that contract. The local source verifier passes;
-the hosted workflow still requires the resulting changes to be published and
-executed by GitHub before hosted-green evidence exists.
+adds an early CI guard for that contract. It also declares the format and lint
+components required by the pinned Rust toolchain. The local source verifier
+passes; hosted-green evidence still requires the corrected workflow to run.
