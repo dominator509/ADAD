@@ -217,15 +217,5 @@ fn wrong_passphrase_fails_cleanly_when_runtime_is_available() {
 }
 
 fn runtime_skip_reason() -> Option<String> {
-    if !cfg!(target_os = "linux") {
-        return Some("host OS is not Linux".to_string());
-    }
-
-    let harness = LoopImageHarness::new();
-    let missing = harness.missing_tools();
-    if missing.is_empty() {
-        None
-    } else {
-        Some(format!("missing host tools: {}", missing.join(", ")))
-    }
+    LoopImageHarness::new().runtime_skip_reason()
 }

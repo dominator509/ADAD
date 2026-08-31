@@ -769,12 +769,17 @@ from provider, network, and I/O failures.
   checkout, where `scripts/verify.sh` reached `scripts/preflight.sh` and got
   `Permission denied` because the tracked shell files were mode `100644`.
 - Files to change: the tracked POSIX shell entrypoints under `scripts/`,
-  `tests/e2e/`, and `tests/os/`, `.github/workflows/ci.yml`, and this plan.
+  `tests/e2e/`, and `tests/os/`, `.github/workflows/ci.yml`, the Forge vault
+  integration-test support and callers, and this plan.
 - Exact edits expected: record mode `100755` for every tracked `.sh` entrypoint
   without changing its content; add a source-job guard that fails if a tracked
   shell entrypoint loses its executable mode; install the `rustfmt` and
   `clippy` components required by the existing verifier for the pinned Rust
-  toolchain. Do not weaken or skip any verifier step.
+  toolchain; make the Forge integration-test preflight verify the disposable
+  loop/LUKS/filesystem runtime rather than only checking command names. A
+  source-only run may skip that privileged runtime only when it is unavailable;
+  `ADAD_REQUIRE_VAULT=1` must continue to fail closed. Do not weaken or skip
+  any verifier step.
 - Validation command: `scripts/preflight.sh`, `scripts/verify.sh`, and
   `git diff --check`.
 - Expected result: a clean Linux checkout can invoke the nested verification
@@ -851,7 +856,9 @@ from provider, network, and I/O failures.
   and an explicit `metafuse mount` command; Linux target compilation and native
   policy tests pass, while live `/dev/fuse` mounting remains external.
 - [ ] M29 restores Linux CI shell-entrypoint execution, installs the verifier's
-  pinned-toolchain components, and adds guards against both regressions.
+  pinned-toolchain components, and adds guards against both regressions; Forge
+  integration tests now distinguish present command names from an unusable
+  privileged runtime while preserving the required-mode failure.
 
 ## 11. Idempotence and Recovery
 
@@ -1176,6 +1183,12 @@ repository three-strike rule and preserve the first exact error in this plan.
   `cfg` because its parent module is already target-gated. The duplicate
   attribute is removed; the module boundary remains the sole Linux compilation
   gate.
+- 2026-08-31: The third hosted run passed the shell guard, toolchain setup, and
+  most source tests, then `forge` attempted a privileged loop/LUKS operation on
+  the GitHub runner because its test preflight checked only command presence.
+  The shared disposable-image harness now probes the complete loop/LUKS/
+  filesystem/mount lifecycle and reports unavailability before the test body;
+  required release mode remains fail-closed through `ADAD_REQUIRE_VAULT=1`.
 
 ## 15. Outcomes & Retrospective
 
