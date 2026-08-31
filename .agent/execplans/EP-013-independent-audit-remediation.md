@@ -1171,6 +1171,11 @@ repository three-strike rule and preserve the first exact error in this plan.
   profile, leaving `cargo-fmt` unavailable to `scripts/format-check.sh`.
   The workflow now requests the existing verifier's `rustfmt` and `clippy`
   components explicitly in both source and release jobs.
+- 2026-08-31: The second hosted run passed the shell and Rust-component guards,
+  then Clippy 1.90 rejected the Linux MetaFUSE runtime's redundant crate-level
+  `cfg` because its parent module is already target-gated. The duplicate
+  attribute is removed; the module boundary remains the sole Linux compilation
+  gate.
 
 ## 15. Outcomes & Retrospective
 
