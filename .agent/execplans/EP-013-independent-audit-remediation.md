@@ -1189,6 +1189,10 @@ repository three-strike rule and preserve the first exact error in this plan.
   The shared disposable-image harness now probes the complete loop/LUKS/
   filesystem/mount lifecycle and reports unavailability before the test body;
   required release mode remains fail-closed through `ADAD_REQUIRE_VAULT=1`.
+- 2026-08-31: The fourth hosted run passed the shell guard, toolchain setup, and
+  source tests, then the static-musl build failed because `ring` could not find
+  `x86_64-linux-musl-gcc`. Both CI jobs now install the existing Debian
+  `musl-tools` package before Rust verification or release-image builds.
 
 ## 15. Outcomes & Retrospective
 
