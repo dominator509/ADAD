@@ -1,6 +1,6 @@
 ---
 id: EP-013
-status: in-progress
+status: complete
 depends_on: [EP-012]
 verify: scripts/verify.sh
 ---
@@ -855,7 +855,7 @@ from provider, network, and I/O failures.
   scrubbed ownership/timestamps, hidden xattrs, symlink/special-file rejection,
   and an explicit `metafuse mount` command; Linux target compilation and native
   policy tests pass, while live `/dev/fuse` mounting remains external.
-- [ ] M29 restores Linux CI shell-entrypoint execution, installs the verifier's
+- [x] M29 restores Linux CI shell-entrypoint execution, installs the verifier's
   pinned-toolchain components, and adds guards against both regressions; Forge
   integration tests now distinguish present command names from an unusable
   privileged runtime while preserving the required-mode failure.
@@ -1193,6 +1193,12 @@ repository three-strike rule and preserve the first exact error in this plan.
   source tests, then the static-musl build failed because `ring` could not find
   `x86_64-linux-musl-gcc`. Both CI jobs now install the existing Debian
   `musl-tools` package before Rust verification or release-image builds.
+- 2026-08-31: The corrected hosted push run (GitHub Actions run 11) passed the
+  shell-mode guard, pinned Rust components, full source verifier, static-musl
+  build, security/dependency checks, and source-only E2E checks. The
+  release-image job was skipped as designed because reviewed model/runtime
+  inputs are manual workflow inputs; image and live-system evidence remain
+  external release gates.
 
 ## 15. Outcomes & Retrospective
 
@@ -1235,6 +1241,9 @@ keeps the pure policy as its source of scrubbed attributes. Source compilation
 and policy tests pass, but live `/dev/fuse` mounting, on-image behavior, and
 payload-level EXIF rewriting remain release evidence gaps.
 M29 restores the tracked executable mode required by fresh Linux checkouts and
-adds an early CI guard for that contract. It also declares the format and lint
-components required by the pinned Rust toolchain. The local source verifier
-passes; hosted-green evidence still requires the corrected workflow to run.
+adds an early CI guard for that contract. It declares the format, lint, and
+musl compiler inputs required by the pinned Rust toolchain, and its Forge test
+preflight distinguishes command presence from a usable privileged runtime.
+The local source verifier and hosted source-verify run 11 pass. The manual
+release-image workflow remains input-gated, and image/live-system evidence is
+still external.
