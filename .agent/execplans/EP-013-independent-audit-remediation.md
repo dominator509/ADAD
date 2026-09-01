@@ -936,9 +936,11 @@ repository three-strike rule and preserve the first exact error in this plan.
   `cargo check -p metafuse --target x86_64-unknown-linux-musl`: passing);
   source-only verification remains green and live FUSE/image evidence remains
   external.
-- [ ] M29 — GitHub Actions source verification now passes the shell-mode guard;
-  the hosted run then exposed missing `rustfmt`/`clippy` components for the
-  pinned toolchain. Both CI inputs remain to be re-run after this correction.
+- [x] M29 — GitHub Actions source verification passes the shell-mode guard,
+  pinned `rustfmt`/`clippy` components, and static-musl build after both CI jobs
+  install `musl-tools`; the shared Forge preflight distinguishes command
+  presence from a usable privileged runtime while `ADAD_REQUIRE_VAULT=1`
+  remains fail-closed. Hosted push run 12 and pull-request run 13 pass.
 
 ## 13. Surprises & Discoveries
 
