@@ -8,9 +8,13 @@ cd "$(dirname "$0")/.."
 
 fail() { echo "production readiness: FAIL - $1" >&2; exit 1; }
 
-# Release evidence is valid only for a clean checkout.  Ignored build outputs
-# are allowed, but source changes must force a new image and new evidence.
-[ -z "$(git status --porcelain --untracked-files=all)" ] || fail "source checkout is dirty"
+# Release evidence is valid only for a clean checkout. Ignored build outputs
+# are allowed, but source changes must force a new image and new evidence. The
+# loop protocol deliberately updates this tracked bookkeeping file as the
+# session's final operation, so it is not source input to the artifact.
+source_status=$(git status --porcelain --untracked-files=all -- . \
+  ':(exclude).agent/state/last-result.env')
+[ -z "$source_status" ] || fail "source checkout is dirty"
 
 # 1. Everything verify covers must pass in release-shaped mode.  Without these
 # variables, verify intentionally performs source-only integration and E2E
