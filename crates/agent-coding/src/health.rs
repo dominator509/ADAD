@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use adad_core::Error;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -30,6 +32,100 @@ impl DaemonHealth {
 
 pub trait DaemonProbe {
     fn check(&mut self, daemon: Daemon) -> Result<DaemonHealth, Error>;
+}
+
+/// Probe the Linux services and interfaces that back the status monitor.
+///
+/// A missing command or an unrecognised host environment is deliberately
+/// reported as `Unknown`; the status surface must never turn an unavailable
+/// observation into a false `Ready` state. The probe is also harmless on
+/// development hosts that do not run systemd or the ADAD daemons.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SystemDaemonProbe;
+
+impl SystemDaemonProbe {
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+
+    fn systemd_unit(unit: &str) -> DaemonHealth {
+        match Command::new("systemctl")
+            .args(["is-active", "--quiet", unit])
+            .output()
+        {
+            Ok(output) if output.status.success() => DaemonHealth::Ready,
+            Ok(_) => DaemonHealth::Down,
+            Err(_) => DaemonHealth::Unknown,
+        }
+    }
+
+    fn process(name: &str) -> DaemonHealth {
+        match Command::new("pidof").arg(name).output() {
+            Ok(output) if output.status.success() && !output.stdout.is_empty() => {
+                DaemonHealth::Ready
+            }
+            Ok(_) => DaemonHealth::Down,
+            Err(_) => DaemonHealth::Unknown,
+        }
+    }
+
+    fn interface_and_tool(interface: &str) -> DaemonHealth {
+        let interface_present =
+            Self::command_succeeds("ip", &["link", "show", "dev", interface, "up"]);
+        let tool_present = Self::command_succeeds("wg", &["show", interface]);
+        match (interface_present, tool_present) {
+            (Some(true), Some(true)) => DaemonHealth::Ready,
+            (Some(_), Some(_)) => DaemonHealth::Down,
+            _ => DaemonHealth::Unknown,
+        }
+    }
+
+    fn command_succeeds(program: &str, args: &[&str]) -> Option<bool> {
+        Command::new(program)
+            .args(args)
+            .output()
+            .ok()
+            .map(|output| output.status.success())
+    }
+
+    fn killswitch() -> DaemonHealth {
+        match Command::new("nft")
+            .args(["list", "table", "inet", "adad_killswitch"])
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                let rules = String::from_utf8_lossy(&output.stdout);
+                if rules.contains("policy drop") {
+                    DaemonHealth::Ready
+                } else {
+                    DaemonHealth::Down
+                }
+            }
+            Ok(_) => DaemonHealth::Down,
+            Err(_) => DaemonHealth::Unknown,
+        }
+    }
+}
+
+impl DaemonProbe for SystemDaemonProbe {
+    fn check(&mut self, daemon: Daemon) -> Result<DaemonHealth, Error> {
+        let health = match daemon {
+            Daemon::Tor => Self::systemd_unit("tor.service"),
+            Daemon::WireGuard => Self::interface_and_tool("wg0"),
+            Daemon::LlamaServer => Self::process("llama-server"),
+            Daemon::Monero => {
+                match (Self::process("monerod"), Self::process("monero-wallet-rpc")) {
+                    (DaemonHealth::Ready, _) | (_, DaemonHealth::Ready) => DaemonHealth::Ready,
+                    (DaemonHealth::Down, DaemonHealth::Down) => DaemonHealth::Down,
+                    _ => DaemonHealth::Unknown,
+                }
+            }
+            Daemon::Git => Self::systemd_unit("git-daemon.service"),
+            Daemon::Killswitch => Self::killswitch(),
+        };
+        Ok(health)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -79,7 +175,7 @@ mod tests {
 
     use adad_core::Error;
 
-    use super::{check_all, Daemon, DaemonHealth, DaemonProbe};
+    use super::{check_all, Daemon, DaemonHealth, DaemonProbe, SystemDaemonProbe};
 
     #[test]
     fn failed_probe_query_maps_to_unknown() {
@@ -89,6 +185,14 @@ mod tests {
 
         assert_eq!(report.tor, DaemonHealth::Ready);
         assert_eq!(report.wireguard, DaemonHealth::Unknown);
+    }
+
+    #[test]
+    fn system_probe_is_constructible_and_never_panics_on_unknown_hosts() {
+        let mut probe = SystemDaemonProbe::new();
+        let _ = probe
+            .check(Daemon::Tor)
+            .expect("system probe returns typed state");
     }
 
     struct MapProbe {

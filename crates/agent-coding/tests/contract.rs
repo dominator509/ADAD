@@ -44,3 +44,19 @@ fn client_sends_openai_compatible_chat_requests_for_each_base_url() {
         }
     }
 }
+
+#[test]
+fn streaming_client_delivers_sse_deltas_in_order() {
+    let server = MockInferenceServer::start();
+    let client = OpenAiCompatClient::new(server.base_url("local"), "", "qwen2.5-coder");
+    let mut deltas = Vec::new();
+
+    let completion = client
+        .chat_stream_with_callback(&[ChatMessage::user("stream")], |delta| {
+            deltas.push(delta.to_owned());
+        })
+        .expect("mock stream should parse");
+
+    assert_eq!(deltas, ["mock ", "stream"]);
+    assert_eq!(completion.content, "mock stream");
+}

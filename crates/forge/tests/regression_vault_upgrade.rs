@@ -9,6 +9,9 @@ use loop_image::LoopImageHarness;
 #[test]
 fn regression_vault_upgrade_keeps_backup_and_payload() {
     if let Some(reason) = runtime_skip_reason() {
+        if std::env::var("ADAD_REQUIRE_VAULT").as_deref() == Ok("1") {
+            panic!("vault integration is required but unavailable: {reason}");
+        }
         eprintln!("regression_vault_upgrade skipped: {reason}");
         return;
     }
@@ -44,15 +47,5 @@ fn regression_vault_upgrade_keeps_backup_and_payload() {
 }
 
 fn runtime_skip_reason() -> Option<String> {
-    if !cfg!(target_os = "linux") {
-        return Some("host OS is not Linux".to_string());
-    }
-
-    let harness = LoopImageHarness::new();
-    let missing = harness.missing_tools();
-    if missing.is_empty() {
-        None
-    } else {
-        Some(format!("missing host tools: {}", missing.join(", ")))
-    }
+    LoopImageHarness::new().runtime_skip_reason()
 }

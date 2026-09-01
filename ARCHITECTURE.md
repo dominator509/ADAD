@@ -18,17 +18,19 @@ ADAD is two things shipped together:
 2. **A set of static-musl Rust tools** that run inside that OS:
    - `forge-rs` — sterile image/vault creation with a Zero-Clock randomized
      epoch (no host timestamp leakage).
-   - `leakguard-rs` — stateful killswitch; netlink interface monitor; fail-closed
-     firewall.
+   - `leakguard-rs` — stateful killswitch; a Linux `ip monitor link` adapter;
+     fail-closed nftables firewall reaction; image-only LUKS2 DMS adapter.
    - `agent-coding-rs` — local-first AI coding harness (uses the official MCP
      Rust SDK; owns tool execution, the control loop, and the provider client).
    - `xmr-wallet-rs` — Monero wallet ops via `monero-wallet-rpc` over Tor.
    - `vps-deploy-rs` — SSH provisioner over Tor; deploys Forgejo hidden service.
    - `persona-rs` — session identity (the pseudonym used by git-spoof + metafuse).
-   - `metafuse-rs` — FUSE layer: randomized timestamps, stripped EXIF, fake UIDs
-     on the user's own vault files.
+   - `metafuse-rs` — Linux read-only FUSE metadata view over the user's own vault
+     files: randomized timestamps, fake UIDs/GIDs, hidden extended attributes,
+     and rejection of symlinks and special files. The existing pure policy is
+     also available for non-Linux checks; embedded file payloads are not rewritten.
    - `git-spoof-rs` — git wrapper enforcing the stable pseudonymous identity and
-     stripping real author/email/timezone metadata before any commit.
+     stripping real author/email/timezone metadata before any local commit.
 
 ## Repository map (intended)
 ```
@@ -53,6 +55,13 @@ ADAD is two things shipped together:
   .agent/                    # control plane (present now)
 ```
 
+The release image package list explicitly carries the runtime tools used by
+the vault, Git, Tor, WireGuard, filesystem, and leakguard paths. The on-image
+leak battery verifies their presence before emitting any pass marker; the
+builder image's toolchain packages are not substitutes for target-image
+contents. Builder and target-image Debian resolution use the pinned
+`20260801T000000Z` snapshot, and the image provenance records that input.
+
 ## Layer responsibilities
 - **`adad-core`** — pure types, config schema, error taxonomy. NO network, NO
   filesystem, NO process spawning. Everything else may depend on it.
@@ -60,7 +69,10 @@ ADAD is two things shipped together:
   Each is a binary crate plus a library module for its testable logic.
 - **`agent-coding` MCP layer** — the only crate allowed to depend on official
   MCP protocol/runtime crates. Tool execution, naming, and control flow stay
-  ADAD-owned in-tree.
+  ADAD-owned in-tree. Configured MCP servers may use direct stdio or the
+  official rmcp streamable-HTTP transport; remote HTTPS MCP requires the
+  authoritative fallback egress state, while plain HTTP is restricted to
+  loopback fixtures.
 - **`live-build/`** — OS assembly. Consumes the release binaries; contains no
   Rust logic.
 
@@ -90,7 +102,10 @@ ADAD is two things shipped together:
    - **venice fallback:** `https://api.venice.ai/api/v1`, over WireGuard,
      **private models only** unless config explicitly opts into anonymized.
 3. The control loop (ADAD-owned) plans/acts using an in-tree execution engine
-   and an official MCP protocol layer, executing tools in the workspace.
+   and an official MCP protocol layer, executing bounded workspace tools and
+   explicitly configured MCP servers. MCP stdio uses a direct child process;
+   remote streamable HTTP uses certificate-verified HTTPS and is denied until
+   the authoritative fallback egress state reports the WireGuard path active.
 4. All egress is subject to `leakguard-rs`: local traffic to `llama-server`
    stays on loopback; any API traffic is forced through the WireGuard interface;
    everything else is Tor or dropped.
@@ -105,6 +120,11 @@ ADAD is two things shipped together:
   vault path; a component that must leave no trace writes only to tmpfs. No
   component writes to a host-mounted filesystem. Tests assert no writes land
   outside tmpfs/vault image.
+
+The shipped `git-spoof commit` command is the bounded Git runtime boundary: it
+commits already-staged local changes with persona-provided author and
+committer fields and fixed UTC timestamps. Remote pushes and arbitrary Git
+subcommands remain outside this binary.
 
 ## Request/command flow (CLI/TUI)
 - User drives everything via `ratatui` TUIs and CLIs (keyboard-only).
@@ -121,8 +141,13 @@ ADAD is two things shipped together:
   posture it enforces.
 
 ## Persistence boundaries
-- Only the vault (LUKS2 image in tests, LUKS2 partition on device in production)
-  is persistent. Everything else is amnesic.
+- Only the vault (LUKS2 image in tests; production-device handling remains a
+  separately gated backend) is persistent. Everything else is amnesic.
+- The current `forge-rs` image boundary accepts only regular image files: it
+  rejects symlinks, directories, block devices, and other non-regular targets
+  before invoking `truncate`, `losetup`, `cryptsetup`, or image backup logic.
+  This prevents the image-only implementation from being mistaken for a safe
+  production-device writer.
 - No SQL database. No ORM. No migrations. Vault layout changes are versioned in
   an `adad-core` config-version field and handled explicitly.
 
@@ -132,8 +157,10 @@ ADAD is two things shipped together:
   directly.
 - `monero-wallet-rpc` is reached ONLY through `xmr-wallet-rs`, over Tor.
 - VPS SSH is reached ONLY through `vps-deploy-rs`, over Tor.
-- Tor control and WireGuard config are managed by `leakguard-rs`; other crates
-  request posture, they do not reconfigure the tunnels.
+- Tor control and WireGuard config are managed by `leakguard-rs`; its shipped
+  monitor observes Linux link events and loads a fixed drop-only nftables
+  ruleset on down/deleted links. Other crates request posture, they do not
+  reconfigure the tunnels.
 
 ## Security boundaries
 - Trust boundary 1: host hardware ↔ ADAD. ADAD trusts nothing on the host disk
@@ -143,6 +170,13 @@ ADAD is two things shipped together:
 - Trust boundary 3: amnesic RAM ↔ LUKS vault. Secrets cross into RAM only while
   unlocked and are scrubbed on lock/shutdown/panic.
 - Every input crossing a boundary is validated in the receiving crate.
+
+The DMS state machine has a concrete image-only adapter in `leakguard-rs`.
+`leakguard dms evaluate-image` accepts a caller-supplied authoritative Tor-NTP
+time and can wipe only a regular LUKS2 image file after expiry; it rejects
+devices and symlinks and never consults the local clock. Automatic Tor-NTP
+acquisition, production block-device destruction, and panic `kexec` remain
+release-gated behaviors rather than being implied by the image adapter.
 
 ## Validation boundaries
 - Validate at the trust boundary where untrusted data enters (CLI args, config

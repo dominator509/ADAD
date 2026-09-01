@@ -13,7 +13,7 @@ but you should be at the root.
 
 ## Package manager rule
 
-- Rust crates: `cargo` (stable toolchain, `x86_64-unknown-linux-musl` target).
+- Rust crates: `cargo` (Rust 1.90.0, `x86_64-unknown-linux-musl` target).
 - Host OS packages: `apt` (Debian). Agents do NOT run `apt install` in a
   session — missing host tools are a STOP condition (see `scripts/install.sh`).
 - EP-009 builder exception: when the user explicitly approves resolving the
@@ -47,7 +47,7 @@ but you should be at the root.
 | OS boot smoke | `tests/os/boot-smoke.sh` | `boot smoke: ok` |
 | Rollback drill | `tests/os/rollback-drill.sh` | `rollback drill: ok` |
 | Minimum system simulation | `scripts/min-system-sim.sh [profile ...]` | `min system sim: ok` |
-| Fetch repo-local llama runtime | `scripts/fetch-llama-cpp-runtime.sh` | `llama runtime: ok` |
+| Fetch repo-local llama runtime | `ADAD_LLAMA_CPP_ARCHIVE_SHA256=<64-hex> scripts/fetch-llama-cpp-runtime.sh` | `llama runtime: ok` |
 
 Host notes:
 - `scripts/build.sh` performs the actual static-link check on Linux. On
@@ -56,12 +56,17 @@ Host notes:
   assertion.
 - `scripts/smoke-test.sh` executes the musl binaries on Linux. On non-Linux
   hosts it prints an explicit skip line instead of silently passing without
-  execution.
+  execution. The native command surfaces can be checked with
+  `cargo run -p <tool> -- --help`; Linux smoke additionally runs safe
+  library-backed policy, metadata, and Git metadata commands.
 - Release-shaped verification sets `ADAD_REQUIRE_IMAGE=1`; in that mode
   `scripts/test-integration.sh` fails if `build/adad.img` or its provenance is
   absent instead of treating the OS test as a pass. Source-only development
   verification leaves that variable unset and labels the image test explicitly
   as omitted.
+- Release-shaped vault verification sets `ADAD_REQUIRE_VAULT=1`; unavailable
+  Linux loopback-vault prerequisites then fail the tests instead of producing a
+  green skip. Normal Windows/source verification leaves that variable unset.
 
 ## Local development commands
 
@@ -70,7 +75,64 @@ Host notes:
   (shape confirmed by `scripts/format-check.sh`, which runs `cargo fmt --all --check`)
 - Run a core tool locally (after build):
   `target/x86_64-unknown-linux-musl/release/<tool> --help`
+- Run the production agent terminal/status surfaces locally (after build):
+  `agent-coding --help`, `agent-coding status`, `agent-coding status-tui`, or
+  `agent-coding tui`. `status` reports `unknown` when the host cannot
+  authoritatively observe an ADAD service or interface; it never treats a
+  missing probe as ready. The terminal monitor exits with Escape or `q`. The
+  interactive agent TUI routes prompts through the bounded agent loop and the
+  same read-only workspace tools as `chat`; final model text is streamed while
+  tool calls remain policy-controlled.
+- Run a bounded local agent request: `agent-coding chat <prompt>`. The chat
+  command registers read-only `workspace_read_file` and `workspace_list_dir`
+  tools rooted at the current workspace; it does not execute shell commands,
+  write files, or read sensitive paths such as `.git`, `.env`, keys, or wallet
+  material.
+- Run the local MCP stdio protocol self-test server:
+  `agent-coding mcp-echo-server`. It exposes only the existing echo tool and is
+  intended for controlled client-transport tests, not external integrations.
+- Run the WireGuard lifecycle surface in the live runtime:
+  `leakguard wireguard status`, `leakguard wireguard up`, or
+  `leakguard wireguard down`. `up` requires the vault runtime to provide a
+  root-owned, mode-0600 `/run/adad/wg0.conf` through `ADAD_WG_CONF`; down uses
+  only the fixed `wg0` interface name so it remains available during vault
+  teardown. Status is read-only and reports `unknown` when Linux observers are
+  absent.
+- Run the fail-closed Linux link monitor in the live image:
+  `leakguard monitor`. It observes `ip monitor link` and atomically loads the
+  fixed drop-only nftables ruleset on down/deleted events. The image runs it
+  under `adad-killswitch-monitor.service`; monitor termination is an error so
+  systemd restarts it.
+- Exercise the image-only DMS header adapter with
+  `leakguard dms evaluate-image <image> <header-bytes> <last-tor-ntp-seconds> <now-tor-ntp-seconds> <window-seconds>`.
+  The image must be a regular LUKS2 file; block devices and symlinks are
+  rejected. The Tor-NTP values must come from the authoritative caller; local
+  clock input is ignored. This command is for disposable image validation and
+  does not acquire time or wipe a device.
+- Run the confirmation-gated VPS provisioner only in the live runtime:
+  `vps-deploy provision <host> <user> --script-stdin --confirm < setup.sh`.
+  The OpenSSH adapter always uses the built-in Tor SOCKS5 ProxyCommand and has
+  no direct-clearnet fallback; `vps-deploy tor-connect` is an internal helper
+  used only by that proxy command.
+- Run wallet RPC queries in the live runtime with `xmr-wallet balance`,
+  `xmr-wallet address`, or `xmr-wallet prepare-transfer <address> <amount>`.
+  `MONERO_RPC_URL` may target the local wallet RPC or a validated `.onion`
+  endpoint; remote requests use the fixed Tor SOCKS5 boundary and never an
+  ambient proxy. Transfer preparation remains non-relaying.
+- Create a local pseudonymous Git commit with `git-spoof commit <message>`
+  after staging the intended changes. It requires the persona/vault-provided
+  `ADAD_PSEUDONYM`, `ADAD_GIT_AUTHOR_NAME`, and `ADAD_GIT_AUTHOR_EMAIL`, sets
+  both author and committer metadata, and normalizes both timestamps to fixed
+  UTC. It does not push or run arbitrary Git subcommands.
+- Present a read-only Linux metadata view with
+  `metafuse mount <source-directory> <mountpoint>`. The source and mountpoint
+  must be distinct existing directories. The adapter rejects symlinks and
+  special files, presents fake ownership and scrubbed timestamps, hides xattrs,
+  and never writes to the source. It requires a Linux kernel FUSE device; a
+  live-image mount and unmount test remains a release validation step.
 - Run one crate's tests only: `cargo test -p <crate-name>`
+- Recover local build space by removing only this checkout's generated target
+  tree: `cargo clean`
 - Fetch the historical claw-code diagnostic snapshot:
   `git clone --depth 1 https://github.com/ultraworkers/claw-code.git build/vendor-src/claw-code`
   (used for BLK-001 / ADR-009 evidence; not part of the active MCP foundation path)
@@ -78,16 +140,27 @@ Host notes:
   tests: `llama-server --model <path-to-gguf> --host 127.0.0.1 --port 8080`
   (OpenAI-compatible endpoint at `/v1/chat/completions`). Confirm exact flags
   with `llama-server --help`; do not guess.
+- Inference timing in `scripts/min-system-sim.sh` is optional for exploration;
+  set `ADAD_REQUIRE_INFERENCE=1` when it is an acceptance criterion. Missing
+  or unusable model/server inputs then fail instead of producing a green
+  `skipped` row.
+- Fetching a repo-local llama.cpp runtime requires the release archive checksum:
+  `ADAD_LLAMA_CPP_ARCHIVE_SHA256=<64-hex> scripts/fetch-llama-cpp-runtime.sh`.
+  The fetcher refuses an unpinned or mismatched archive.
 - Prepare a containerized EP-009 image builder when host tools are unavailable
   and the blocker has an explicit user resolution:
   `scripts/build-image-builder.sh` then `scripts/check-image-builder.sh`
   (Dockerfile lives at `live-build/builder/Dockerfile` and installs the
-  `ENVIRONMENT.md` image-build tools inside the container only).
+  `ENVIRONMENT.md` image-build tools inside the container only. The Dockerfile
+  pins the amd64 Rust base by digest and resolves Debian packages through its
+  explicit snapshot date; update either only with a supply-chain review.)
 - Build the EP-009 Debian-Live image artifact:
   `scripts/build-image.sh`
-  (runs live-build inside `adad-ep009-builder:local` and writes
-  `build/adad.img`; the container receives mount capability for live-build's
-  chroot `/proc` and `/dev/pts` mounts, but no host block devices are bound).
+  (set `ADAD_LLAMA_RUNTIME_DIR` and `ADAD_LLAMA_MODEL_SOURCE` to reviewed,
+  repo-relative inputs first; the builder refuses an image without both. It
+  runs live-build inside `adad-ep009-builder:local` and writes `build/adad.img`;
+  the container receives mount capability for live-build's chroot `/proc` and
+  `/dev/pts` mounts, but no host block devices are bound.)
 
 ## Database / migrations
 

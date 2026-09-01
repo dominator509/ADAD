@@ -60,12 +60,22 @@ metadata-stripped code publishing.
 
 ## Data protection rules
 - At rest: LUKS2/Argon2id. In memory: scrub key material on lock/shutdown/panic
-  (zeroize sensitive buffers).
+  (volatile-wiped sensitive buffers with drop-time cleanup).
 - No swap (constraint) — prevents secret spill to disk.
 
 ## Production data rules
 - No agent session operates on a real device, real remote, real wallet, or real
   VPS. Those are STOP conditions (AGENTS.md §13).
+
+The current DMS source includes a concrete regular-file LUKS2 image adapter
+with no-follow opening on Unix, header magic/version validation, chunked
+zeroing, flush, and read-back verification. It is exercised only against
+disposable image files. This does not establish automatic Tor-NTP acquisition,
+production block-device destruction, or panic `kexec` behavior.
+
+The shipped link monitor reacts to down/deleted events by loading a complete
+drop-only nftables ruleset. It does not merely flush the normal policy table,
+because removing policy chains would be fail-open.
 
 ## Safe migration rules
 - No DB migrations exist. Vault-layout changes bump an `adad-core` config
@@ -87,8 +97,11 @@ metadata-stripped code publishing.
   rate limiting needed.
 
 ## File upload rules
-- `metafuse-rs` scrubs metadata (timestamps, EXIF, UIDs) on the user's own vault
-  files. No third-party upload surface exists.
+- `metafuse-rs` provides a Linux read-only FUSE view that presents scrubbed
+  ownership and timestamps, hides extended attributes, and rejects symlinks and
+  special files without modifying the source tree. Its pure policy also hides
+  modeled EXIF tags; it does not rewrite embedded file payloads. No third-party
+  upload surface exists.
 
 ## Security checklist
 - [ ] No committed secrets (security-check passes).

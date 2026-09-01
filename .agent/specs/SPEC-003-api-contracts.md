@@ -35,7 +35,8 @@ tests — mocks only. No inference HTTP calls outside `OpenAiCompatClient`.
 
 ### Agent loop
 - The ADAD control loop MUST use ADAD-owned execution policy for workspace tools
-  and the official MCP SDK for MCP servers (stdio + HTTP/SSE), while owning
+  and the official MCP SDK for MCP servers (stdio + streamable HTTP with SSE
+  responses), while owning
   planning/iteration itself.
 - The loop MUST enforce a bounded tool-iteration budget and surface tool errors
   as typed results.

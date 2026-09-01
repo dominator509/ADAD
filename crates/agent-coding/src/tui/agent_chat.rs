@@ -1,12 +1,28 @@
+use std::{
+    io,
+    sync::mpsc::{self, Receiver, TryRecvError},
+    thread,
+    time::Duration,
+};
+
 use adad_core::Error;
+use crossterm::{
+    event::{self, Event, KeyCode, KeyEventKind},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use ratatui::{
+    backend::CrosstermBackend,
     backend::TestBackend,
     text::{Line, Text},
     widgets::{Block, Paragraph},
     Frame, Terminal,
 };
 
-use crate::DEFAULT_LOCAL_MODEL;
+use crate::{
+    AgentLoop, ExecutionRegistry, LoopMessage, OpenAiAgentModel, OpenAiCompatClient,
+    WorkspaceToolExecutor, DEFAULT_LOCAL_MODEL,
+};
 
 use super::{escape_terminal_text, Theme, ThemeKind};
 
@@ -35,6 +51,160 @@ pub struct AgentChatFrameLog {
     pub frames: Vec<String>,
     pub sent_prompts: Vec<String>,
     pub state: ChatViewState,
+}
+
+/// Run the keyboard-driven agent chat against the supplied provider client.
+///
+/// Provider I/O runs on a worker thread so the terminal event loop can keep
+/// repainting while a local model responds. SSE text fragments are delivered
+/// to the renderer as they arrive; arbitrary provider text is never interpreted
+/// as a tool call.
+pub fn run_agent_chat(client: OpenAiCompatClient) -> Result<(), Error> {
+    run_agent_chat_with_provider(client, "local", DEFAULT_LOCAL_MODEL)
+}
+
+/// Run the interactive agent chat with the provider metadata selected by the
+/// runtime configuration. The legacy `run_agent_chat` wrapper remains the
+/// local-default API for callers that do not need a custom label.
+pub fn run_agent_chat_with_provider(
+    client: OpenAiCompatClient,
+    provider: impl Into<String>,
+    model: impl Into<String>,
+) -> Result<(), Error> {
+    enable_raw_mode().map_err(|_| Error::Io)?;
+    let _cleanup = TerminalCleanup;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen).map_err(|_| Error::Io)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).map_err(|_| Error::Io)?;
+    let mut state = AgentChatState::with_provider_model(provider, model);
+    let mut transcript = Vec::<LoopMessage>::new();
+    let workspace = std::env::current_dir().map_err(|_| Error::Io)?;
+    let registry = ExecutionRegistry::with_workspace_tools();
+    let mut pending: Option<(Receiver<StreamEvent>, thread::JoinHandle<()>)> = None;
+
+    loop {
+        let mut request_finished = false;
+        if let Some((receiver, _)) = pending.as_ref() {
+            loop {
+                match receiver.try_recv() {
+                    Ok(StreamEvent::Delta(delta)) => state.stream_delta(&delta),
+                    Ok(StreamEvent::Complete(content)) => {
+                        state.finish_stream();
+                        transcript.push(LoopMessage::assistant(content));
+                        request_finished = true;
+                    }
+                    Ok(StreamEvent::Failed(error)) => {
+                        state.set_error(&error);
+                        request_finished = true;
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        state.set_error(&Error::Provider);
+                        request_finished = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if request_finished {
+            if let Some((_, handle)) = pending.take() {
+                let _ = handle.join();
+            }
+        }
+
+        terminal
+            .draw(|frame| render_agent_chat(frame, &state))
+            .map_err(|_| Error::Io)?;
+
+        if event::poll(Duration::from_millis(50)).map_err(|_| Error::Io)? {
+            let Event::Key(key) = event::read().map_err(|_| Error::Io)? else {
+                continue;
+            };
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            match key.code {
+                KeyCode::Esc => break,
+                KeyCode::Backspace if pending.is_none() => {
+                    state.input.pop();
+                }
+                KeyCode::Enter if pending.is_none() => {
+                    let previous_count = state.sent_prompts.len();
+                    state.handle_key('\n');
+                    if state.sent_prompts.len() == previous_count {
+                        continue;
+                    }
+                    let prompt = state.sent_prompts.last().cloned().ok_or(Error::Provider)?;
+                    transcript.push(LoopMessage::user(prompt));
+                    let messages = transcript.clone();
+                    let request_client = client.clone();
+                    let worker_registry = registry.clone();
+                    let worker_workspace = workspace.clone();
+                    let (sender, receiver) = mpsc::channel();
+                    let handle = thread::spawn(move || {
+                        let mut model =
+                            OpenAiAgentModel::with_tools(request_client, &worker_registry);
+                        let mut executor = match WorkspaceToolExecutor::new(worker_workspace) {
+                            Ok(executor) => executor,
+                            Err(error) => {
+                                let _ = sender.send(StreamEvent::Failed(error));
+                                return;
+                            }
+                        };
+                        let mut on_delta = |delta: &str| {
+                            let _ = sender.send(StreamEvent::Delta(delta.to_owned()));
+                        };
+                        let result = AgentLoop::new(worker_registry, 8)
+                            .run_transcript_with_callback(
+                                messages,
+                                &mut model,
+                                &mut executor,
+                                &mut on_delta,
+                            );
+                        match result {
+                            Ok(result) => match result.final_answer {
+                                Some(content) => {
+                                    let _ = sender.send(StreamEvent::Complete(content));
+                                }
+                                None => {
+                                    let _ = sender.send(StreamEvent::Failed(Error::Provider));
+                                }
+                            },
+                            Err(error) => {
+                                let _ = sender.send(StreamEvent::Failed(error));
+                            }
+                        }
+                    });
+                    pending = Some((receiver, handle));
+                }
+                KeyCode::Char(ch) if pending.is_none() => state.handle_key(ch),
+                _ => {}
+            }
+        }
+    }
+
+    if let Some((_, handle)) = pending.take() {
+        let _ = handle.join();
+    }
+
+    Ok(())
+}
+
+enum StreamEvent {
+    Delta(String),
+    Complete(String),
+    Failed(Error),
+}
+
+struct TerminalCleanup;
+
+impl Drop for TerminalCleanup {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let mut stdout = io::stdout();
+        let _ = execute!(stdout, LeaveAlternateScreen);
+    }
 }
 
 pub fn run_agent_chat_headless(events: &[AgentChatEvent]) -> Result<AgentChatFrameLog, Error> {
@@ -99,6 +269,14 @@ impl Default for AgentChatState {
 }
 
 impl AgentChatState {
+    fn with_provider_model(provider: impl Into<String>, model: impl Into<String>) -> Self {
+        Self {
+            provider: provider.into(),
+            model: model.into(),
+            ..Self::default()
+        }
+    }
+
     fn handle_key(&mut self, key: char) {
         if key == '\n' {
             let prompt = self.input.trim().to_owned();

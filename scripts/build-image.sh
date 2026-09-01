@@ -20,5 +20,8 @@ docker run --rm \
   --security-opt seccomp=unconfined \
   -v "$workspace:/workspace" \
   -w /workspace \
+  -e ADAD_LLAMA_CPP_RELEASE_TAG="${ADAD_LLAMA_CPP_RELEASE_TAG:-b9892}" \
+  -e ADAD_LLAMA_RUNTIME_DIR="${ADAD_LLAMA_RUNTIME_DIR:-}" \
+  -e ADAD_LLAMA_MODEL_SOURCE="${ADAD_LLAMA_MODEL_SOURCE:-}" \
   "$builder" \
   sh scripts/build-image-inside.sh
