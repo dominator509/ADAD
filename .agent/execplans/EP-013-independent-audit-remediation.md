@@ -964,6 +964,9 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M36 — The boot MAC hardening and on-image MAC smoke fail closed when no
   non-loopback interface exists or a MAC transition fails; the source verifier
   guards those assertions.
+- [x] M37 — Local provider URL validation matches exact loopback hosts, rejects
+  host-prefix collisions, userinfo, and invalid ports, and preserves valid
+  loopback forms through regression tests.
 
 ## 13. Surprises & Discoveries
 
@@ -1274,6 +1277,12 @@ repository three-strike rule and preserve the first exact error in this plan.
 - 2026-09-01: M36 validation passed with `preflight: ok`, `git diff --check`,
   focused caller/marker review, and the full verifier (`verify: ok`), including
   the MAC-randomization dependency check.
+- 2026-09-01: M37 closes a local-provider trust-boundary prefix collision:
+  `localhost.evil.example` and `127.0.0.1.evil.example` are no longer accepted
+  as loopback endpoints, while exact IPv4, hostname, and IPv6 loopback forms
+  with valid ports remain allowed.
+- 2026-09-01: M37 validation passed with `preflight: ok`, `git diff --check`,
+  focused configuration tests (8 passed), and the full verifier (`verify: ok`).
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1338,3 +1347,5 @@ M35 prevents the static-tool help pipeline from masking application failures;
 the on-image smoke now validates both process success and usage output.
 M36 makes MAC randomization and its boot/smoke markers fail closed when an
 interface is absent or any down/address/up transition fails.
+M37 makes local provider URL validation compare the parsed authority rather
+than a raw host prefix, with exact-host and port regression coverage.

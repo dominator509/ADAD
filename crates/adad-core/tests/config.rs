@@ -92,3 +92,32 @@ fn rejects_unknown_and_incomplete_string_escapes() {
         assert!(Config::from_toml_str(&input).is_err(), "input: {input}");
     }
 }
+
+#[test]
+fn rejects_local_url_host_prefix_collisions_and_invalid_ports() {
+    for url in [
+        "http://127.0.0.1.evil.example/v1",
+        "http://localhost.evil.example/v1",
+        "http://user@localhost:8080/v1",
+        "http://localhost:not-a-port/v1",
+        "http://localhost:65536/v1",
+    ] {
+        let input =
+            format!("config_version = 2\nprovider = \"local\"\nlocal_base_url = \"{url}\"\n");
+        assert!(Config::from_toml_str(&input).is_err(), "input: {input}");
+    }
+}
+
+#[test]
+fn accepts_exact_loopback_hosts_with_valid_ports() {
+    for url in [
+        "http://127.0.0.1/v1",
+        "http://127.0.0.1:8080/v1",
+        "http://localhost:8080/v1",
+        "http://[::1]:8080/v1",
+    ] {
+        let input =
+            format!("config_version = 2\nprovider = \"local\"\nlocal_base_url = \"{url}\"\n");
+        Config::from_toml_str(&input).expect("exact loopback URL should be accepted");
+    }
+}
