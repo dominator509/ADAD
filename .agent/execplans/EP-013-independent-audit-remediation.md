@@ -946,6 +946,9 @@ repository three-strike rule and preserve the first exact error in this plan.
   checking source cleanliness; all other source and untracked changes remain
   release-blocking. The artifact provenance and source/tree checks are
   unchanged.
+- [x] M31 — The release image installs `openssh-client`, and the on-image leak
+  battery requires the `ssh` executable before it can report a valid runtime;
+  the existing Tor-bound, confirmation-gated VPS transport is unchanged.
 
 ## 13. Surprises & Discoveries
 
@@ -1211,6 +1214,14 @@ repository three-strike rule and preserve the first exact error in this plan.
   that tracked file to be rewritten after every session. All other source and
   untracked changes still invalidate source-to-artifact evidence; provenance
   and source/tree matching checks are unchanged.
+- 2026-09-01: M31 validation passed with `scripts/verify.sh` (`verify: ok`),
+  including shell/source checks and the existing image-battery contract checks.
+  The actual package install and `ssh` assertion remain exercised only when a
+  Linux image build is run; no remote host or provisioning action was performed.
+- 2026-09-01: M31 adds the target-image `openssh-client` package required by
+  the existing `vps-deploy` OpenSSH adapter and makes the on-image battery
+  fail closed if `ssh` is absent. No remote host or provisioning action is
+  performed by the source or image smoke checks.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
