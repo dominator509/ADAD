@@ -1335,6 +1335,10 @@ repository three-strike rule and preserve the first exact error in this plan.
   and the complete host verifier ending in `verify: ok`; it reported
   `workflow action pins: ok`. This is source-level supply-chain hardening, not
   proof of a hosted run or reproducible image bytes.
+- 2026-09-01: Reviewed the M42 guard for false confidence: checking only that
+  the expected pins exist would still permit an additional mutable action. The
+  verifier now also rejects every `uses:` line that is outside the reviewed
+  allowlist.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required

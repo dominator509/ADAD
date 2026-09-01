@@ -166,6 +166,19 @@ do
     exit 1
   }
 done
+action_lines=$(grep -E '^[[:space:]]+uses:' .github/workflows/ci.yml || true)
+while IFS= read -r action_line; do
+  case "$action_line" in
+    '        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4'|'        uses: dtolnay/rust-toolchain@06e5a564a0556e338780f5aecf2e7dcc9b267f07 # 1.90.0'|'        uses: taiki-e/install-action@8e38755317fb11cc24a0cd3b573a64008362d207 # cargo-audit'|'        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4')
+      ;;
+    *)
+      echo "ERROR: CI workflow contains an unexpected action reference: $action_line" >&2
+      exit 1
+      ;;
+  esac
+done <<EOF
+$action_lines
+EOF
 echo "workflow action pins: ok"
 # Pull requests must exercise the real disposable LUKS runtime. Keep the
 # source job's package installation and fail-closed environment coupled so a
