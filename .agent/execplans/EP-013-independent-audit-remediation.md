@@ -969,6 +969,8 @@ repository three-strike rule and preserve the first exact error in this plan.
   loopback forms through regression tests.
 - [x] M38 — The llama runtime fetcher requires HTTPS release metadata/assets and
   HTTPS-only redirects, and the source verifier guards both download paths.
+- [x] M39 — The image builder resolves llama runtime/model inputs inside the
+  checkout and rejects symlinked or ambiguous release-input trees before copy.
 
 ## 13. Surprises & Discoveries
 
@@ -1291,6 +1293,15 @@ repository three-strike rule and preserve the first exact error in this plan.
   those protections; no external runtime or model was downloaded in this
   session. Validation passed with `preflight: ok`, `git diff --check`, and the
   full verifier (`verify: ok`).
+- 2026-09-01: Reopened EP-013 for M39 rather than creating another plan. The
+  image builder's lexical repo-relative checks could still follow a symlinked
+  model or runtime input outside the checkout. The builder now resolves every
+  release input, rejects checkout escapes and symlinked runtime/model paths,
+  and the source verifier guards those checks before an image copy.
+- 2026-09-01: M39 validation passed with `preflight: ok`, `git diff --check`,
+  the focused workspace-executor rerun after one transient Windows I/O failure,
+  and the complete verifier (`verify: ok`). No model/runtime artifact was
+  downloaded or copied during this session.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1359,3 +1370,5 @@ M37 makes local provider URL validation compare the parsed authority rather
 than a raw host prefix, with exact-host and port regression coverage.
 M38 makes the llama runtime fetcher's release metadata and asset downloads
 HTTPS-only, including redirects, and adds a source-level transport guard.
+M39 binds resolved llama runtime/model inputs to the checkout and rejects
+symlinked or ambiguous runtime trees before image composition.

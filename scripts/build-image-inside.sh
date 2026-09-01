@@ -11,6 +11,10 @@ debian_mirror="https://snapshot.debian.org/archive/debian/${debian_snapshot}/"
 debian_security_mirror="https://snapshot.debian.org/archive/debian-security/${debian_snapshot}/"
 
 cd "$repo"
+repo_real=$(readlink -f -- "$repo") || {
+  echo "ERROR: image build could not resolve the checkout path." >&2
+  exit 1
+}
 # The builder commonly runs as root against a checkout owned by the CI runner.
 # Allow Git's read-only provenance queries for that mounted checkout.
 git config --global --add safe.directory "$repo" >/dev/null 2>&1 || true
@@ -122,9 +126,48 @@ case "$llama_model_rel" in
 esac
 llama_runtime="$repo/$llama_runtime_rel"
 llama_model="$repo/$llama_model_rel"
+ensure_repo_path() {
+  candidate="$1"
+  resolved=$(readlink -f -- "$candidate") || {
+    echo "ERROR: release input path cannot be resolved: $candidate." >&2
+    exit 1
+  }
+  case "$resolved" in
+    "$repo_real"/*) ;;
+    *)
+      echo "ERROR: release input escapes the checkout: $candidate." >&2
+      exit 1
+      ;;
+  esac
+}
+
+ensure_repo_path "$llama_runtime"
+ensure_repo_path "$llama_runtime/llama-server"
+ensure_repo_path "$llama_model"
+[ ! -L "$llama_runtime" ] || {
+  echo "ERROR: llama runtime directory must not be a symlink." >&2
+  exit 1
+}
+[ -d "$llama_runtime" ] || {
+  echo "ERROR: llama runtime directory is missing at $llama_runtime." >&2
+  exit 1
+}
+runtime_symlink=$(find "$llama_runtime" -type l -print -quit)
+[ -z "$runtime_symlink" ] || {
+  echo "ERROR: llama runtime contains a symlink; refusing ambiguous image input." >&2
+  exit 1
+}
+[ ! -L "$llama_runtime/llama-server" ] || {
+  echo "ERROR: llama-server must be a regular file inside the checkout." >&2
+  exit 1
+}
 [ -x "$llama_runtime/llama-server" ] || {
   echo "ERROR: llama-server runtime is missing at $llama_runtime/llama-server." >&2
   echo "Fetch or supply the reviewed runtime before building the release image." >&2
+  exit 1
+}
+[ ! -L "$llama_model" ] || {
+  echo "ERROR: local model artifact must be a regular file inside the checkout." >&2
   exit 1
 }
 [ -f "$llama_model" ] || {

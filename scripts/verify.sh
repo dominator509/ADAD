@@ -117,6 +117,30 @@ redir_count=$(grep -F -- "--proto-redir '=https'" scripts/fetch-llama-cpp-runtim
   exit 1
 }
 echo "llama runtime HTTPS transport check: ok"
+# Image inputs are supplied through ignored build paths. Keep their resolved
+# targets inside the checked-out tree and reject symlinks before the builder
+# copies bytes into the release image.
+grep -Fx 'repo_real=$(readlink -f -- "$repo") || {' scripts/build-image-inside.sh >/dev/null || {
+  echo "ERROR: image builder does not resolve the checkout before copying release inputs." >&2
+  exit 1
+}
+grep -Fx 'ensure_repo_path "$llama_runtime"' scripts/build-image-inside.sh >/dev/null || {
+  echo "ERROR: image builder does not bind the llama runtime to the checkout." >&2
+  exit 1
+}
+grep -Fx 'ensure_repo_path "$llama_model"' scripts/build-image-inside.sh >/dev/null || {
+  echo "ERROR: image builder does not bind the model artifact to the checkout." >&2
+  exit 1
+}
+grep -Fx '[ ! -L "$llama_model" ] || {' scripts/build-image-inside.sh >/dev/null || {
+  echo "ERROR: image builder can follow a model symlink into an unreviewed path." >&2
+  exit 1
+}
+grep -Fx 'runtime_symlink=$(find "$llama_runtime" -type l -print -quit)' scripts/build-image-inside.sh >/dev/null || {
+  echo "ERROR: image builder does not reject symlinks in the runtime tree." >&2
+  exit 1
+}
+echo "image input provenance check: ok"
 scripts/smoke-test.sh
 # The E2E leak battery is a required repository control. It may explicitly omit
 # the expensive image run during source-only verification, but a missing
