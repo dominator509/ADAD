@@ -180,6 +180,21 @@ done <<EOF
 $action_lines
 EOF
 echo "workflow action pins: ok"
+# Required inference acceptance must enforce the product's documented lower
+# bound; optional exploratory runs may still record out-of-band measurements.
+grep -Fx '  minimum_tok_s=4.0' scripts/min-system-sim-inside.sh >/dev/null || {
+  echo "ERROR: required inference acceptance has no SPEC-000 throughput floor." >&2
+  exit 1
+}
+grep -F 'if [ "$require_inference" = "1" ] && ! awk' scripts/min-system-sim-inside.sh >/dev/null || {
+  echo "ERROR: required inference acceptance does not guard its throughput floor." >&2
+  exit 1
+}
+grep -F 'BEGIN { exit !(actual >= minimum) }' scripts/min-system-sim-inside.sh >/dev/null || {
+  echo "ERROR: required inference acceptance does not enforce the throughput floor." >&2
+  exit 1
+}
+echo "inference throughput gate: ok"
 # Pull requests must exercise the real disposable LUKS runtime. Keep the
 # source job's package installation and fail-closed environment coupled so a
 # future workflow edit cannot restore a green privileged-test skip.

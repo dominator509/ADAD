@@ -979,6 +979,9 @@ repository three-strike rule and preserve the first exact error in this plan.
   archive tools required by the existing llama runtime fetch path.
 - [x] M42 — GitHub Actions dependencies are pinned to reviewed commit IDs and
   the source verifier rejects mutable or unexpected action references.
+- [x] M43 — Required minimum-system inference acceptance enforces the
+  SPEC-000 lower bound of 4 tok/s while optional exploratory runs remain
+  measurement-only.
 
 ## 13. Surprises & Discoveries
 
@@ -1339,6 +1342,16 @@ repository three-strike rule and preserve the first exact error in this plan.
   the expected pins exist would still permit an additional mutable action. The
   verifier now also rejects every `uses:` line that is outside the reviewed
   allowlist.
+- 2026-09-01: Reopened EP-013 for M43 rather than creating another plan. The
+  minimum-system simulator's required mode rejected missing or unready
+  inference inputs but accepted any measured response, so the recorded 0.02
+  tok/s host32 result could not fail the product's documented 4 tok/s floor.
+  Required mode now fails below that fixed SPEC-000 lower bound; optional mode
+  preserves out-of-band measurements for diagnosis.
+- 2026-09-01: M43 validation passed with shell syntax, `git diff --check`, and
+  the complete host verifier ending in `verify: ok`; it reported
+  `inference throughput gate: ok`. No model or image artifact was run or
+  modified during this source-only validation.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1419,3 +1432,6 @@ packages; the exact container build remains an external Linux validation gate.
 M42 pins the workflow's third-party actions to reviewed commit IDs and guards
 those pins in source verification; isolated hosted execution and two clean
 image-build comparisons remain external evidence.
+M43 makes required inference acceptance enforce the SPEC-000 4 tok/s lower
+ bound while preserving optional exploratory timing; representative hardware
+ performance remains an external release gate.

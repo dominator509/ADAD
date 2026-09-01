@@ -62,7 +62,7 @@ process environment at runtime.
 | `ADAD_LLAMA_RUNTIME_DIR` | optional | image-build | `build/tools/llama.cpp/b9892` | no | Repo-relative reviewed llama.cpp runtime directory staged into a release image. | executable `llama-server` must be present |
 | `ADAD_LLAMA_MODEL_SOURCE` | required for image release | image-build | `build/models/default.gguf` | no | Repo-relative GGUF model artifact copied to the image and served on loopback. | existing regular file; paths containing `..` are refused |
 | `ADAD_LLAMA_READY_TIMEOUT` | optional | local/test | `300` | no | Seconds to wait for `llama-server` to answer before recording a simulator skip reason. | positive integer |
-| `ADAD_REQUIRE_INFERENCE` | optional | local/test/CI | `0` | no | When `1`, minimum-system inference timing is required and missing or unusable model/server inputs fail the simulation. | exactly `0` or `1` |
+| `ADAD_REQUIRE_INFERENCE` | optional | local/test/CI | `0` | no | When `1`, minimum-system inference is required; missing/unusable inputs or measured throughput below the SPEC-000 lower bound of 4 tok/s fail the simulation. | exactly `0` or `1` |
 | `ADAD_REQUIRE_VAULT` | optional | CI/test | `1` | no | Turns unavailable Linux loopback-vault prerequisites into a test failure instead of a source-only skip. | exactly `1` to require the integration |
 
 > This table needs per-crate confirmation as crates are implemented. Each

@@ -157,6 +157,7 @@ measure_inference() {
   hf_model="${ADAD_PERF_HF_MODEL:-}"
   ready_timeout="${ADAD_LLAMA_READY_TIMEOUT:-300}"
   llama_server_bin="${ADAD_LLAMA_SERVER_BIN:-llama-server}"
+  minimum_tok_s=4.0
 
   if [ -n "$hf_model" ]; then
     sh scripts/fetch-llama-cpp-runtime.sh >"$tmp_root/adad-min-sim-llama-runtime.log"
@@ -228,6 +229,10 @@ measure_inference() {
   fi
 
   tok_s="$(awk -v tokens="$completion_tokens" -v elapsed="$elapsed_ms" 'BEGIN { printf "%.2f", (tokens * 1000) / elapsed }')"
+  if [ "$require_inference" = "1" ] && ! awk -v actual="$tok_s" -v minimum="$minimum_tok_s" 'BEGIN { exit !(actual >= minimum) }'; then
+    inference_result below-minimum "measured ${tok_s} tok/s; SPEC-000 minimum is ${minimum_tok_s} tok/s"
+    return 0
+  fi
   printf 'measured\t%s\t%s\tcompletion_tokens=%s' "$elapsed_ms" "$tok_s" "$completion_tokens"
 }
 

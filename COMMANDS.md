@@ -142,8 +142,8 @@ Host notes:
   with `llama-server --help`; do not guess.
 - Inference timing in `scripts/min-system-sim.sh` is optional for exploration;
   set `ADAD_REQUIRE_INFERENCE=1` when it is an acceptance criterion. Missing
-  or unusable model/server inputs then fail instead of producing a green
-  `skipped` row.
+  or unusable model/server inputs, or measured throughput below SPEC-000's
+  4 tok/s lower bound, then fail instead of producing a green result.
 - Fetching a repo-local llama.cpp runtime requires the release archive checksum:
   `ADAD_LLAMA_CPP_ARCHIVE_SHA256=<64-hex> scripts/fetch-llama-cpp-runtime.sh`.
   The fetcher refuses an unpinned or mismatched archive.
