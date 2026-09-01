@@ -69,7 +69,7 @@ if [ "$cached_archive_sha256" = "$archive_sha256" ] \
   exit 0
 fi
 
-json="$(curl -fsSL "$api_url")"
+json="$(curl -fsSL --proto '=https' --proto-redir '=https' --tlsv1.2 "$api_url")"
 download_url="$(
   printf '%s\n' "$json" \
     | sed -n 's/.*"browser_download_url":[[:space:]]*"\([^"]*\)".*/\1/p' \
@@ -84,9 +84,17 @@ download_url="$(
   exit 1
 }
 
+case "$download_url" in
+  https://*) ;;
+  *)
+    echo "ERROR: llama.cpp release asset URL must use HTTPS." >&2
+    exit 1
+    ;;
+esac
+
 rm -rf "$install_dir"
 mkdir -p "$install_dir"
-curl -fL "$download_url" -o "$archive"
+curl -fL --proto '=https' --proto-redir '=https' --tlsv1.2 "$download_url" -o "$archive"
 actual_sha256="$(sha256sum "$archive" | awk '{print $1}')"
 if [ "$actual_sha256" != "$archive_sha256" ]; then
   echo "ERROR: llama.cpp archive checksum mismatch (expected $archive_sha256, got $actual_sha256)." >&2

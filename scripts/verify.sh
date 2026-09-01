@@ -103,6 +103,20 @@ grep -Fx '  help_output=$("/usr/local/bin/$tool" --help 2>/dev/null) || console_
   exit 1
 }
 echo "image help-exit dependency check: ok"
+# Runtime downloads are release inputs. Keep both metadata and asset fetches
+# on HTTPS, including redirects, so a changed release response cannot add a
+# cleartext egress path to the builder.
+grep -Fx '  https://*) ;;' scripts/fetch-llama-cpp-runtime.sh >/dev/null || {
+  echo "ERROR: llama runtime fetcher does not require HTTPS asset URLs." >&2
+  exit 1
+}
+proto_count=$(grep -F -- "--proto '=https'" scripts/fetch-llama-cpp-runtime.sh | wc -l | tr -d '[:space:]')
+redir_count=$(grep -F -- "--proto-redir '=https'" scripts/fetch-llama-cpp-runtime.sh | wc -l | tr -d '[:space:]')
+[ "$proto_count" -ge 2 ] && [ "$redir_count" -ge 2 ] || {
+  echo "ERROR: llama runtime downloads do not enforce HTTPS redirects." >&2
+  exit 1
+}
+echo "llama runtime HTTPS transport check: ok"
 scripts/smoke-test.sh
 # The E2E leak battery is a required repository control. It may explicitly omit
 # the expensive image run during source-only verification, but a missing

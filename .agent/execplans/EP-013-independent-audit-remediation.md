@@ -967,6 +967,8 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M37 — Local provider URL validation matches exact loopback hosts, rejects
   host-prefix collisions, userinfo, and invalid ports, and preserves valid
   loopback forms through regression tests.
+- [x] M38 — The llama runtime fetcher requires HTTPS release metadata/assets and
+  HTTPS-only redirects, and the source verifier guards both download paths.
 
 ## 13. Surprises & Discoveries
 
@@ -1283,6 +1285,12 @@ repository three-strike rule and preserve the first exact error in this plan.
   with valid ports remain allowed.
 - 2026-09-01: M37 validation passed with `preflight: ok`, `git diff --check`,
   focused configuration tests (8 passed), and the full verifier (`verify: ok`).
+- 2026-09-01: M38 closes a release-input transport gap: the llama runtime
+  fetcher now rejects non-HTTPS asset URLs and constrains both metadata and
+  asset redirects to HTTPS with TLS 1.2 or newer. The source verifier counts
+  those protections; no external runtime or model was downloaded in this
+  session. Validation passed with `preflight: ok`, `git diff --check`, and the
+  full verifier (`verify: ok`).
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1349,3 +1357,5 @@ M36 makes MAC randomization and its boot/smoke markers fail closed when an
 interface is absent or any down/address/up transition fails.
 M37 makes local provider URL validation compare the parsed authority rather
 than a raw host prefix, with exact-host and port regression coverage.
+M38 makes the llama runtime fetcher's release metadata and asset downloads
+HTTPS-only, including redirects, and adds a source-level transport guard.
