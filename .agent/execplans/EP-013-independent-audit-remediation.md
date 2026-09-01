@@ -958,6 +958,9 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M34 — The target image explicitly installs `procps` for the hardening
   hook's `sysctl` checks, and the source verifier guards that package/runtime
   pairing.
+- [x] M35 — The on-image static-tool smoke requires successful `--help` exit
+  status as well as a usage marker, and the source verifier guards that
+  non-masking behavior.
 
 ## 13. Surprises & Discoveries
 
@@ -1254,6 +1257,13 @@ repository three-strike rule and preserve the first exact error in this plan.
   policy and does not claim live image evidence.
 - 2026-09-01: M34 validation passed with `preflight: ok`, `git diff --check`,
   the package/runtime coupling review, and the full verifier (`verify: ok`).
+- 2026-09-01: M35 closes a pipeline-status false positive in the on-image
+  static-tool smoke: command failure is checked before the usage output is
+  inspected. The source verifier requires this two-step check; no executable
+  behavior or external operation is changed.
+- 2026-09-01: M35 validation passed with `preflight: ok`, `git diff --check`,
+  focused source review, and the full verifier (`verify: ok`), including the
+  new image help-exit dependency check.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1314,3 +1324,5 @@ transition cannot be exercised; source checks pass only when the battery cannot
 silently convert that missing exercise into a success marker.
 M34 makes `procps` explicit for the hook's `sysctl` hardening checks and keeps
 that target dependency paired with a source assertion.
+M35 prevents the static-tool help pipeline from masking application failures;
+the on-image smoke now validates both process success and usage output.

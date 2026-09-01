@@ -56,6 +56,13 @@ grep -Fx 'require_cmd sysctl' live-build/hooks/0100-adad-hardening.hook.chroot >
   exit 1
 }
 echo "image sysctl dependency check: ok"
+# Do not let a pipeline hide a non-zero application exit: the image smoke
+# requires both a successful --help process and an actual usage surface.
+grep -Fx '  help_output=$("/usr/local/bin/$tool" --help 2>/dev/null) || console_fail "help-$tool"' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image static-tool smoke can mask a failed --help exit." >&2
+  exit 1
+}
+echo "image help-exit dependency check: ok"
 scripts/smoke-test.sh
 # The E2E leak battery is a required repository control. It may explicitly omit
 # the expensive image run during source-only verification, but a missing

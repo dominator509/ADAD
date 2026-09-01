@@ -222,7 +222,8 @@ console_pass "killswitch-monitor"
 
 for tool in agent-coding forge git-spoof leakguard metafuse persona vps-deploy xmr-wallet; do
   [ -x "/usr/local/bin/$tool" ] || console_fail "tool-$tool"
-  "/usr/local/bin/$tool" --help 2>/dev/null | grep -q 'Usage:' || console_fail "help-$tool"
+  help_output=$("/usr/local/bin/$tool" --help 2>/dev/null) || console_fail "help-$tool"
+  printf '%s\n' "$help_output" | grep -q 'Usage:' || console_fail "help-$tool"
 done
 console_pass "static-tools"
 
