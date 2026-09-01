@@ -955,6 +955,9 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M33 — The on-image interface-drop probe fails closed when no non-loopback
   interface exists or the requested down/restore transition fails; the source
   verifier guards those assertions.
+- [x] M34 — The target image explicitly installs `procps` for the hardening
+  hook's `sysctl` checks, and the source verifier guards that package/runtime
+  pairing.
 
 ## 13. Surprises & Discoveries
 
@@ -1245,6 +1248,12 @@ repository three-strike rule and preserve the first exact error in this plan.
   the candidate bypass review, and the full verifier (`verify: ok`). Windows
   source execution still labels Linux musl/image checks as unavailable rather
   than treating them as live evidence.
+- 2026-09-01: M34 closes the explicit target-image dependency gap for `sysctl`:
+  `procps` is now in the image package list and the source verifier requires
+  both the package and the hook assertion. This preserves the existing IPv6
+  policy and does not claim live image evidence.
+- 2026-09-01: M34 validation passed with `preflight: ok`, `git diff --check`,
+  the package/runtime coupling review, and the full verifier (`verify: ok`).
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1303,3 +1312,5 @@ packet behavior remain release validation gates.
 M33 makes the interface-drop section fail closed when its required interface
 transition cannot be exercised; source checks pass only when the battery cannot
 silently convert that missing exercise into a success marker.
+M34 makes `procps` explicit for the hook's `sysctl` hardening checks and keeps
+that target dependency paired with a source assertion.

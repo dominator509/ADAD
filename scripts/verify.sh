@@ -45,6 +45,17 @@ grep -Fx 'ip link set dev "$drop_iface" down 2>/dev/null || console_fail "drop-i
   exit 1
 }
 echo "image interface-drop dependency check: ok"
+# The hardening hook uses sysctl for IPv6 policy checks. Keep its target
+# package explicit so a missing command cannot masquerade as a passing probe.
+grep -Fx 'procps' live-build/config/package-lists/adad-base.list.chroot >/dev/null || {
+  echo "ERROR: target image is missing the procps package required by sysctl checks." >&2
+  exit 1
+}
+grep -Fx 'require_cmd sysctl' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image hardening battery does not require sysctl before using it." >&2
+  exit 1
+}
+echo "image sysctl dependency check: ok"
 scripts/smoke-test.sh
 # The E2E leak battery is a required repository control. It may explicitly omit
 # the expensive image run during source-only verification, but a missing

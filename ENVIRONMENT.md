@@ -15,6 +15,7 @@
 | qemu-system-x86 | current | OS boot + leak-battery testing |
 | git | 2.x | version control; git-spoof wraps it |
 | openssh-client | current | Tor-bound SSH transport for VPS provisioning |
+| procps | current | `sysctl` used by IPv6 and hardening checks |
 
 Host OS for building: Debian/Ubuntu x86_64. Agents do not `apt install` in a
 session; missing host tools are a STOP (see `scripts/install.sh`).
