@@ -96,14 +96,17 @@ random_local_mac() {
     "$(printf '%s' "$rest" | cut -c9-10)"
 }
 
+mac_ifaces=0
 for path in /sys/class/net/*; do
   iface=$(basename "$path")
   [ "$iface" = "lo" ] && continue
+  mac_ifaces=$((mac_ifaces + 1))
   mac=$(random_local_mac)
-  ip link set dev "$iface" down 2>/dev/null || true
-  ip link set dev "$iface" address "$mac" 2>/dev/null || true
-  ip link set dev "$iface" up 2>/dev/null || true
+  ip link set dev "$iface" down 2>/dev/null || exit 1
+  ip link set dev "$iface" address "$mac" 2>/dev/null || exit 1
+  ip link set dev "$iface" up 2>/dev/null || exit 1
 done
+[ "$mac_ifaces" -gt 0 ] || exit 1
 
 printf '%s\n' 'adad-killswitch: armed' > /dev/console || true
 printf '%s\n' 'adad-ipv6: disabled' > /dev/console || true
@@ -284,15 +287,18 @@ grep -q '^DNSPort 127.0.0.1:5353$' /etc/tor/torrc.d/adad.conf || console_fail "t
 systemctl is-enabled tor.service >/dev/null 2>&1 || console_fail "tor-enabled"
 console_pass "tor-default"
 
+mac_iface_count=0
 for path in /sys/class/net/*; do
   iface=$(basename "$path")
   [ "$iface" = "lo" ] && continue
+  mac_iface_count=$((mac_iface_count + 1))
   mac=$(cat "$path/address")
   first_hex=${mac%%:*}
   first=$((0x$first_hex))
   [ $((first & 1)) -eq 0 ] || console_fail "mac-multicast-$iface"
   [ $((first & 2)) -eq 2 ] || console_fail "mac-local-$iface"
 done
+[ "$mac_iface_count" -gt 0 ] || console_fail "mac-interface"
 console_pass "mac"
 
 if timeout 5 ping -4 -c 1 -W 1 1.1.1.1 >/tmp/adad-clearnet-ping.log 2>&1; then

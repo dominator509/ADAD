@@ -45,6 +45,46 @@ grep -Fx 'ip link set dev "$drop_iface" down 2>/dev/null || console_fail "drop-i
   exit 1
 }
 echo "image interface-drop dependency check: ok"
+# The boot posture must not claim MAC randomization when there is no usable
+# interface or when an assignment transition fails. Keep the boot marker and
+# leak-battery assertion tied to those fail-closed checks.
+grep -Fx 'mac_ifaces=0' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: boot hardening can claim MAC randomization without an interface." >&2
+  exit 1
+}
+grep -Fx '  mac_ifaces=$((mac_ifaces + 1))' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: boot hardening does not count non-loopback interfaces." >&2
+  exit 1
+}
+grep -Fx '  ip link set dev "$iface" down 2>/dev/null || exit 1' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: boot hardening can ignore a failed MAC transition." >&2
+  exit 1
+}
+grep -Fx '  ip link set dev "$iface" address "$mac" 2>/dev/null || exit 1' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: boot hardening can ignore a failed MAC assignment." >&2
+  exit 1
+}
+grep -Fx '  ip link set dev "$iface" up 2>/dev/null || exit 1' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: boot hardening can ignore a failed MAC restore." >&2
+  exit 1
+}
+grep -Fx '[ "$mac_ifaces" -gt 0 ] || exit 1' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: boot hardening lacks a non-loopback-interface fail-closed check." >&2
+  exit 1
+}
+grep -Fx 'mac_iface_count=0' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image MAC smoke can pass without observing an interface." >&2
+  exit 1
+}
+grep -Fx '  mac_iface_count=$((mac_iface_count + 1))' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image MAC smoke does not count non-loopback interfaces." >&2
+  exit 1
+}
+grep -Fx '[ "$mac_iface_count" -gt 0 ] || console_fail "mac-interface"' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image MAC smoke lacks a non-loopback-interface failure." >&2
+  exit 1
+}
+echo "image mac-randomization dependency check: ok"
 # The hardening hook uses sysctl for IPv6 policy checks. Keep its target
 # package explicit so a missing command cannot masquerade as a passing probe.
 grep -Fx 'procps' live-build/config/package-lists/adad-base.list.chroot >/dev/null || {

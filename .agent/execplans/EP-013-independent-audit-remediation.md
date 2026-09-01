@@ -961,6 +961,9 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M35 — The on-image static-tool smoke requires successful `--help` exit
   status as well as a usage marker, and the source verifier guards that
   non-masking behavior.
+- [x] M36 — The boot MAC hardening and on-image MAC smoke fail closed when no
+  non-loopback interface exists or a MAC transition fails; the source verifier
+  guards those assertions.
 
 ## 13. Surprises & Discoveries
 
@@ -1264,6 +1267,13 @@ repository three-strike rule and preserve the first exact error in this plan.
 - 2026-09-01: M35 validation passed with `preflight: ok`, `git diff --check`,
   focused source review, and the full verifier (`verify: ok`), including the
   new image help-exit dependency check.
+- 2026-09-01: M36 closes a false-positive hardening path: the boot service no
+  longer emits the MAC-randomization marker after ignored interface failures,
+  and the on-image MAC check cannot pass with only loopback. The existing
+  fail-closed firewall remains in place when boot setup aborts.
+- 2026-09-01: M36 validation passed with `preflight: ok`, `git diff --check`,
+  focused caller/marker review, and the full verifier (`verify: ok`), including
+  the MAC-randomization dependency check.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1326,3 +1336,5 @@ M34 makes `procps` explicit for the hook's `sysctl` hardening checks and keeps
 that target dependency paired with a source assertion.
 M35 prevents the static-tool help pipeline from masking application failures;
 the on-image smoke now validates both process success and usage output.
+M36 makes MAC randomization and its boot/smoke markers fail closed when an
+interface is absent or any down/address/up transition fails.
