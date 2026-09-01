@@ -4,6 +4,7 @@ cryptsetup
 e2fsprogs
 git
 openssh-client
+iputils-ping
 iproute2
 live-boot
 nftables

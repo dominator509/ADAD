@@ -949,6 +949,9 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M31 — The release image installs `openssh-client`, and the on-image leak
   battery requires the `ssh` executable before it can report a valid runtime;
   the existing Tor-bound, confirmation-gated VPS transport is unchanged.
+- [x] M32 — The release image installs `iputils-ping`, the on-image leak battery
+  requires `ping` before its clearnet/drop probes, and the source verifier keeps
+  the package/assertion pair from drifting.
 
 ## 13. Surprises & Discoveries
 
@@ -1222,6 +1225,14 @@ repository three-strike rule and preserve the first exact error in this plan.
   the existing `vps-deploy` OpenSSH adapter and makes the on-image battery
   fail closed if `ssh` is absent. No remote host or provisioning action is
   performed by the source or image smoke checks.
+- 2026-09-01: M32 closes a target-image dependency gap for the existing
+  clearnet and interface-drop probes: `iputils-ping` is now installed, `ping`
+  is required before either probe, and `scripts/verify.sh` asserts that the
+  package and runtime check remain coupled. This improves test validity without
+  changing the network policy or performing live traffic in this session.
+- 2026-09-01: M32 validation passed with `preflight: ok`, `git diff --check`,
+  the isolated workspace-executor regression test, and the full verifier
+  (`image leak-probe dependency check: ok`; `verify: ok`).
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1274,3 +1285,6 @@ preflight distinguishes command presence from a usable privileged runtime.
 The local source verifier and hosted source-verify run 11 pass. The manual
 release-image workflow remains input-gated, and image/live-system evidence is
 still external.
+M32 closes the image leak battery's missing `ping` dependency and adds a
+source-level package/assertion regression check; the actual target image and
+packet behavior remain release validation gates.

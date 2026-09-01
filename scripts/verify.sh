@@ -22,6 +22,18 @@ if ADAD_LLAMA_CPP_RELEASE_TAG='../escape' sh scripts/fetch-llama-cpp-runtime.sh 
   exit 1
 fi
 echo "llama runtime input validation: ok"
+# The on-image leak battery uses ping as its controlled clearnet probe. Keep
+# the target package list and runtime assertion coupled so a missing binary
+# cannot be mistaken for a successful blocked-traffic test.
+grep -Fx 'iputils-ping' live-build/config/package-lists/adad-base.list.chroot >/dev/null || {
+  echo "ERROR: target image is missing the iputils-ping package required by the leak battery." >&2
+  exit 1
+}
+grep -Fx 'require_cmd ping' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image leak battery does not require ping before using it." >&2
+  exit 1
+}
+echo "image leak-probe dependency check: ok"
 scripts/smoke-test.sh
 # The E2E leak battery is a required repository control. It may explicitly omit
 # the expensive image run during source-only verification, but a missing

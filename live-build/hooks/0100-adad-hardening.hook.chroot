@@ -206,6 +206,7 @@ require_cmd umount
 require_cmd truncate
 require_cmd git
 require_cmd ssh
+require_cmd ping
 require_cmd tor
 require_cmd wg
 require_cmd wg-quick
