@@ -971,6 +971,10 @@ repository three-strike rule and preserve the first exact error in this plan.
   HTTPS-only redirects, and the source verifier guards both download paths.
 - [x] M39 — The image builder resolves llama runtime/model inputs inside the
   checkout and rejects symlinked or ambiguous release-input trees before copy.
+- [ ] M40 — Hosted source verification installs the existing vault runtime
+  dependencies and runs the Forge integration suite as a required step with
+  `ADAD_REQUIRE_VAULT=1`, so privileged tests cannot silently skip on pull
+  requests.
 
 ## 13. Surprises & Discoveries
 
@@ -1302,6 +1306,12 @@ repository three-strike rule and preserve the first exact error in this plan.
   the focused workspace-executor rerun after one transient Windows I/O failure,
   and the complete verifier (`verify: ok`). No model/runtime artifact was
   downloaded or copied during this session.
+- 2026-09-01: Reopened EP-013 for M40 rather than creating another plan. The
+  ordinary hosted source job installed no LUKS runtime and did not set
+  `ADAD_REQUIRE_VAULT=1`, so Forge's real integration tests could still skip.
+  The existing job now installs `cryptsetup`, `e2fsprogs`, and `util-linux` and
+  runs a required root-scoped Forge integration step with the fail-closed
+  environment. Missing runner capability remains a job failure.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1372,3 +1382,7 @@ M38 makes the llama runtime fetcher's release metadata and asset downloads
 HTTPS-only, including redirects, and adds a source-level transport guard.
 M39 binds resolved llama runtime/model inputs to the checkout and rejects
 symlinked or ambiguous runtime trees before image composition.
+M40 makes ordinary hosted source verification run the existing disposable LUKS
+integration as a required root-scoped step instead of accepting a green
+privileged-test skip; hosted runner capability still must be observed on the
+exact pushed commit.

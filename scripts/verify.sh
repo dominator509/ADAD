@@ -141,6 +141,31 @@ grep -Fx 'runtime_symlink=$(find "$llama_runtime" -type l -print -quit)' scripts
   exit 1
 }
 echo "image input provenance check: ok"
+# Pull requests must exercise the real disposable LUKS runtime. Keep the
+# source job's package installation and fail-closed environment coupled so a
+# future workflow edit cannot restore a green privileged-test skip.
+source_ci_block=$(awk '/^  source-verify:/{in_source=1} /^  release-image:/{in_source=0} in_source {print}' .github/workflows/ci.yml)
+printf '%s\n' "$source_ci_block" | grep -Fx '      - name: Install vault integration tools' >/dev/null || {
+  echo "ERROR: hosted source verification does not install vault integration tools." >&2
+  exit 1
+}
+printf '%s\n' "$source_ci_block" | grep -Fx '        run: sudo apt-get update && sudo apt-get install -y cryptsetup e2fsprogs util-linux' >/dev/null || {
+  echo "ERROR: hosted source verification does not install the complete vault toolchain." >&2
+  exit 1
+}
+printf '%s\n' "$source_ci_block" | grep -Fx '      - name: Verify required vault integration' >/dev/null || {
+  echo "ERROR: hosted source verification has no required vault integration step." >&2
+  exit 1
+}
+printf '%s\n' "$source_ci_block" | grep -Fx '          ADAD_REQUIRE_VAULT: "1"' >/dev/null || {
+  echo "ERROR: hosted source verification can silently skip vault integration." >&2
+  exit 1
+}
+printf '%s\n' "$source_ci_block" | grep -Fx '            "$cargo_bin" test -p forge --tests' >/dev/null || {
+  echo "ERROR: hosted source verification does not execute the Forge integration suite." >&2
+  exit 1
+}
+echo "hosted vault integration gate: ok"
 scripts/smoke-test.sh
 # The E2E leak battery is a required repository control. It may explicitly omit
 # the expensive image run during source-only verification, but a missing
