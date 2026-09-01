@@ -27,7 +27,9 @@ source_tree=$(git rev-parse 'HEAD^{tree}' 2>/dev/null) || {
   echo "ERROR: image build could not resolve the source tree." >&2
   exit 1
 }
-if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+source_status=$(git status --porcelain --untracked-files=all -- . \
+  ':(exclude).agent/state/last-result.env')
+if [ -n "$source_status" ]; then
   echo "ERROR: image build requires a clean source checkout; provenance cannot bind dirty files." >&2
   exit 1
 fi

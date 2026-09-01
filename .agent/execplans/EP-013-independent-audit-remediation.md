@@ -941,10 +941,11 @@ repository three-strike rule and preserve the first exact error in this plan.
   install `musl-tools`; the shared Forge preflight distinguishes command
   presence from a usable privileged runtime while `ADAD_REQUIRE_VAULT=1`
   remains fail-closed. Hosted push run 12 and pull-request run 13 pass.
-- [x] M30 — Production readiness ignores only the loop-mandated tracked
-  `.agent/state/last-result.env` bookkeeping update when checking source
-  cleanliness; all other source and untracked changes remain release-blocking.
-  The artifact provenance and source/tree checks are unchanged.
+- [x] M30 — Production readiness and the image builder ignore only the
+  loop-mandated tracked `.agent/state/last-result.env` bookkeeping update when
+  checking source cleanliness; all other source and untracked changes remain
+  release-blocking. The artifact provenance and source/tree checks are
+  unchanged.
 
 ## 13. Surprises & Discoveries
 
@@ -1206,10 +1207,10 @@ repository three-strike rule and preserve the first exact error in this plan.
   inputs are manual workflow inputs; image and live-system evidence remain
   external release gates.
 - 2026-08-31: M30 excludes only `.agent/state/last-result.env` from the
-  readiness clean-check because the loop contract requires that tracked file
-  to be rewritten after every session. All other source and untracked changes
-  still invalidate source-to-artifact evidence; provenance and source/tree
-  matching checks are unchanged.
+  readiness and image-builder clean-checks because the loop contract requires
+  that tracked file to be rewritten after every session. All other source and
+  untracked changes still invalidate source-to-artifact evidence; provenance
+  and source/tree matching checks are unchanged.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
