@@ -18,6 +18,7 @@ RUN set -eux; \
     && apt-get install -y --no-install-recommends \
       ca-certificates \
       coreutils \
+      curl \
       cryptsetup \
       debootstrap \
       e2fsprogs \
@@ -26,6 +27,7 @@ RUN set -eux; \
       live-build \
       qemu-system-x86 \
       squashfs-tools \
+      unzip \
       util-linux \
       xorriso \
     && rustup target add x86_64-unknown-linux-musl \

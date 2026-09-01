@@ -1,6 +1,6 @@
 ---
 id: EP-013
-status: complete
+status: in-progress
 depends_on: [EP-012]
 verify: scripts/verify.sh
 ---
@@ -971,10 +971,12 @@ repository three-strike rule and preserve the first exact error in this plan.
   HTTPS-only redirects, and the source verifier guards both download paths.
 - [x] M39 — The image builder resolves llama runtime/model inputs inside the
   checkout and rejects symlinked or ambiguous release-input trees before copy.
-- [ ] M40 — Hosted source verification installs the existing vault runtime
+- [x] M40 — Hosted source verification installs the existing vault runtime
   dependencies and runs the Forge integration suite as a required step with
   `ADAD_REQUIRE_VAULT=1`, so privileged tests cannot silently skip on pull
   requests.
+- [x] M41 — The containerized image builder explicitly installs the HTTPS and
+  archive tools required by the existing llama runtime fetch path.
 
 ## 13. Surprises & Discoveries
 
@@ -1312,6 +1314,15 @@ repository three-strike rule and preserve the first exact error in this plan.
   The existing job now installs `cryptsetup`, `e2fsprogs`, and `util-linux` and
   runs a required root-scoped Forge integration step with the fail-closed
   environment. Missing runner capability remains a job failure.
+- 2026-09-01: Reopened EP-013 for M41 rather than creating another plan. The
+  minimum-system simulation can invoke `fetch-llama-cpp-runtime.sh` inside the
+  image builder, but the builder declared neither `curl` for its HTTPS fetches
+  nor `unzip` for its supported ZIP archive branch. Both packages are now
+  explicit builder inputs and are guarded by source verification.
+- 2026-09-01: M40 and M41 validation passed with `preflight: ok`, `git diff
+  --check`, and the complete host verifier ending in `verify: ok`. The verifier
+  reported `hosted vault integration gate: ok` and `image builder llama tools:
+  ok`; Linux image execution remains correctly skipped on this Windows host.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1386,3 +1397,6 @@ M40 makes ordinary hosted source verification run the existing disposable LUKS
 integration as a required root-scoped step instead of accepting a green
 privileged-test skip; hosted runner capability still must be observed on the
 exact pushed commit.
+M41 makes the builder's llama fetch prerequisites explicit (`curl` and `unzip`)
+so the minimum-system runtime path cannot depend on incidental base-image
+packages; the exact container build remains an external Linux validation gate.

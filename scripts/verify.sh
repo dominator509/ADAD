@@ -141,6 +141,18 @@ grep -Fx 'runtime_symlink=$(find "$llama_runtime" -type l -print -quit)' scripts
   exit 1
 }
 echo "image input provenance check: ok"
+# The minimum-system simulator can fetch a reviewed llama runtime from inside
+# the repo-owned builder. Keep the builder's explicit network/archive tools
+# coupled to that fetch path rather than relying on incidental base-image state.
+grep -Fx "      curl \\" live-build/builder/Dockerfile >/dev/null || {
+  echo "ERROR: image builder is missing curl for the llama HTTPS fetch path." >&2
+  exit 1
+}
+grep -Fx "      unzip \\" live-build/builder/Dockerfile >/dev/null || {
+  echo "ERROR: image builder is missing unzip for ZIP llama runtime archives." >&2
+  exit 1
+}
+echo "image builder llama tools: ok"
 # Pull requests must exercise the real disposable LUKS runtime. Keep the
 # source job's package installation and fail-closed environment coupled so a
 # future workflow edit cannot restore a green privileged-test skip.

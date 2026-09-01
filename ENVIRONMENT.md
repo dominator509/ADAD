@@ -14,6 +14,8 @@
 | squashfs-tools | current | SquashFS for the live image |
 | qemu-system-x86 | current | OS boot + leak-battery testing |
 | git | 2.x | version control; git-spoof wraps it |
+| curl | current | HTTPS metadata and model/runtime retrieval in the image builder |
+| unzip | current | inspect ZIP-form llama.cpp runtime archives in the image builder |
 | openssh-client | current | Tor-bound SSH transport for VPS provisioning |
 | procps | current | `sysctl` used by IPv6 and hardening checks |
 
