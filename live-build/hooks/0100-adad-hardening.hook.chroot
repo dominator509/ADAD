@@ -307,21 +307,20 @@ for path in /sys/class/net/*; do
   break
 done
 
-if [ -n "$drop_iface" ]; then
-  ip link set dev "$drop_iface" down 2>/dev/null || true
-  sleep 1
-  rules_after=$(nft list ruleset)
-  printf '%s\n' "$rules_after" | grep -q 'table inet adad_killswitch' || console_fail "drop-nft-table"
-  printf '%s\n' "$rules_after" | grep -q 'policy drop' || console_fail "drop-nft-policy"
-  printf '%s\n' "$rules_after" | grep -q 'oifname "lo" accept' || console_fail "drop-loopback"
-  if printf '%s\n' "$rules_after" | grep -q 'oifname "wg0" accept'; then
-    console_fail "drop-wireguard-allow"
-  fi
-  if timeout 5 ping -4 -c 1 -W 1 1.1.1.1 >/tmp/adad-drop-ping.log 2>&1; then
-    console_fail "drop-clearnet"
-  fi
-  ip link set dev "$drop_iface" up 2>/dev/null || true
+[ -n "$drop_iface" ] || console_fail "drop-interface"
+ip link set dev "$drop_iface" down 2>/dev/null || console_fail "drop-interface-down"
+sleep 1
+rules_after=$(nft list ruleset)
+printf '%s\n' "$rules_after" | grep -q 'table inet adad_killswitch' || console_fail "drop-nft-table"
+printf '%s\n' "$rules_after" | grep -q 'policy drop' || console_fail "drop-nft-policy"
+printf '%s\n' "$rules_after" | grep -q 'oifname "lo" accept' || console_fail "drop-loopback"
+if printf '%s\n' "$rules_after" | grep -q 'oifname "wg0" accept'; then
+  console_fail "drop-wireguard-allow"
 fi
+if timeout 5 ping -4 -c 1 -W 1 1.1.1.1 >/tmp/adad-drop-ping.log 2>&1; then
+  console_fail "drop-clearnet"
+fi
+ip link set dev "$drop_iface" up 2>/dev/null || console_fail "drop-interface-restore"
 console_pass "drop"
 
 printf '%s\n' 'adad-leak-battery: all: pass' > /dev/console || true

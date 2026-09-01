@@ -952,6 +952,9 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M32 — The release image installs `iputils-ping`, the on-image leak battery
   requires `ping` before its clearnet/drop probes, and the source verifier keeps
   the package/assertion pair from drifting.
+- [x] M33 — The on-image interface-drop probe fails closed when no non-loopback
+  interface exists or the requested down/restore transition fails; the source
+  verifier guards those assertions.
 
 ## 13. Surprises & Discoveries
 
@@ -1233,6 +1236,15 @@ repository three-strike rule and preserve the first exact error in this plan.
 - 2026-09-01: M32 validation passed with `preflight: ok`, `git diff --check`,
   the isolated workspace-executor regression test, and the full verifier
   (`image leak-probe dependency check: ok`; `verify: ok`).
+- 2026-09-01: M33 closes a false-positive path in the on-image killswitch
+  battery: it now requires an actual non-loopback interface and reports a
+  failed down or restore transition instead of continuing to a pass marker.
+  The source verifier couples these checks to the hook; live QEMU reaction
+  evidence remains external.
+- 2026-09-01: M33 validation passed with `preflight: ok`, `git diff --check`,
+  the candidate bypass review, and the full verifier (`verify: ok`). Windows
+  source execution still labels Linux musl/image checks as unavailable rather
+  than treating them as live evidence.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1288,3 +1300,6 @@ still external.
 M32 closes the image leak battery's missing `ping` dependency and adds a
 source-level package/assertion regression check; the actual target image and
 packet behavior remain release validation gates.
+M33 makes the interface-drop section fail closed when its required interface
+transition cannot be exercised; source checks pass only when the battery cannot
+silently convert that missing exercise into a success marker.

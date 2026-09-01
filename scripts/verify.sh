@@ -34,6 +34,17 @@ grep -Fx 'require_cmd ping' live-build/hooks/0100-adad-hardening.hook.chroot >/d
   exit 1
 }
 echo "image leak-probe dependency check: ok"
+# The drop probe must exercise a real interface transition. A missing
+# interface or ignored transition is not evidence that the killswitch reacted.
+grep -Fx '[ -n "$drop_iface" ] || console_fail "drop-interface"' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image leak battery can pass without a non-loopback interface." >&2
+  exit 1
+}
+grep -Fx 'ip link set dev "$drop_iface" down 2>/dev/null || console_fail "drop-interface-down"' live-build/hooks/0100-adad-hardening.hook.chroot >/dev/null || {
+  echo "ERROR: on-image leak battery does not fail when interface down fails." >&2
+  exit 1
+}
+echo "image interface-drop dependency check: ok"
 scripts/smoke-test.sh
 # The E2E leak battery is a required repository control. It may explicitly omit
 # the expensive image run during source-only verification, but a missing
