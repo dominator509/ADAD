@@ -977,6 +977,8 @@ repository three-strike rule and preserve the first exact error in this plan.
   requests.
 - [x] M41 — The containerized image builder explicitly installs the HTTPS and
   archive tools required by the existing llama runtime fetch path.
+- [x] M42 — GitHub Actions dependencies are pinned to reviewed commit IDs and
+  the source verifier rejects mutable or unexpected action references.
 
 ## 13. Surprises & Discoveries
 
@@ -1323,6 +1325,16 @@ repository three-strike rule and preserve the first exact error in this plan.
   --check`, and the complete host verifier ending in `verify: ok`. The verifier
   reported `hosted vault integration gate: ok` and `image builder llama tools:
   ok`; Linux image execution remains correctly skipped on this Windows host.
+- 2026-09-01: Reopened EP-013 for M42 rather than creating another plan. The
+  workflow still used mutable GitHub Action tags even though the image builder,
+  Debian snapshot, and Rust toolchain were pinned. Current GitHub tag
+  resolutions were recorded as immutable commit IDs for checkout, the Rust
+  toolchain action, cargo-audit installation, and artifact upload; the verifier
+  now guards those exact references.
+- 2026-09-01: M42 validation passed with `preflight: ok`, `git diff --check`,
+  and the complete host verifier ending in `verify: ok`; it reported
+  `workflow action pins: ok`. This is source-level supply-chain hardening, not
+  proof of a hosted run or reproducible image bytes.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
@@ -1400,3 +1412,6 @@ exact pushed commit.
 M41 makes the builder's llama fetch prerequisites explicit (`curl` and `unzip`)
 so the minimum-system runtime path cannot depend on incidental base-image
 packages; the exact container build remains an external Linux validation gate.
+M42 pins the workflow's third-party actions to reviewed commit IDs and guards
+those pins in source verification; isolated hosted execution and two clean
+image-build comparisons remain external evidence.

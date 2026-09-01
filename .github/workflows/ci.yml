@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify shell entrypoints
         shell: bash
         run: |
@@ -39,12 +39,12 @@ jobs:
       - name: Install musl build tools
         run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@06e5a564a0556e338780f5aecf2e7dcc9b267f07 # 1.90.0
         with:
           targets: x86_64-unknown-linux-musl
           components: rustfmt, clippy
       - name: Install cargo-audit
-        uses: taiki-e/install-action@cargo-audit
+        uses: taiki-e/install-action@8e38755317fb11cc24a0cd3b573a64008362d207 # cargo-audit
       - name: Install vault integration tools
         run: sudo apt-get update && sudo apt-get install -y cryptsetup e2fsprogs util-linux
       - name: Verify source suite
@@ -81,16 +81,16 @@ jobs:
       ADAD_LLAMA_MODEL_SOURCE: build/models/default.gguf
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install musl build tools
         run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@06e5a564a0556e338780f5aecf2e7dcc9b267f07 # 1.90.0
         with:
           targets: x86_64-unknown-linux-musl
           components: rustfmt, clippy
       - name: Install cargo-audit
-        uses: taiki-e/install-action@cargo-audit
+        uses: taiki-e/install-action@8e38755317fb11cc24a0cd3b573a64008362d207 # cargo-audit
       - name: Install vault integration tools
         run: sudo apt-get update && sudo apt-get install -y cryptsetup e2fsprogs util-linux
       - name: Stage reviewed local model
@@ -128,7 +128,7 @@ jobs:
       - name: Verify release provenance
         run: sh scripts/production-readiness-check.sh
       - name: Upload tested release evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: adad-release-evidence
           path: |

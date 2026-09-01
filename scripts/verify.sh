@@ -153,6 +153,20 @@ grep -Fx "      unzip \\" live-build/builder/Dockerfile >/dev/null || {
   exit 1
 }
 echo "image builder llama tools: ok"
+# Keep GitHub Actions inputs immutable. The comments retain the human-facing
+# release labels while the commit IDs make the workflow source reproducible.
+for action_pin in \
+  '        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4' \
+  '        uses: dtolnay/rust-toolchain@06e5a564a0556e338780f5aecf2e7dcc9b267f07 # 1.90.0' \
+  '        uses: taiki-e/install-action@8e38755317fb11cc24a0cd3b573a64008362d207 # cargo-audit' \
+  '        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4'
+do
+  grep -Fx "$action_pin" .github/workflows/ci.yml >/dev/null || {
+    echo "ERROR: CI workflow contains an unpinned or unexpected action reference." >&2
+    exit 1
+  }
+done
+echo "workflow action pins: ok"
 # Pull requests must exercise the real disposable LUKS runtime. Keep the
 # source job's package installation and fail-closed environment coupled so a
 # future workflow edit cannot restore a green privileged-test skip.
