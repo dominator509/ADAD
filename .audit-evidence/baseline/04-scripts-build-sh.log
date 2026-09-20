@@ -1,0 +1,118 @@
+================================================================================
+ADAD BASELINE EVIDENCE  (task t_bf7d4ee4)
+log:            /root/ADAD/.audit-evidence/baseline/04-scripts-build-sh.log
+started:        2026-09-07T18:33:36Z
+command_line:   /bin/sh scripts/build.sh
+working_dir:    /root/ADAD
+shell:          bash (orchestrator) -> /bin/sh for scripts / real cargo for cargo cmds
+resolved_bin:   /bin/sh
+env:            RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+env:            PATH=/root/.cargo/bin:[HOME]/admin/.npm-global/bin:[HOME]/linuxbrew/.linuxbrew/bin:[HOME]/linuxbrew/.linuxbrew/sbin:[HOME]/hermes-env/bin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+host:           Linux 6.8.0-106-generic x86_64  UTC
+repo_head:      03e865bd634af30b39226578dd6257cb5a47ec59
+git_status:     0 modified tracked paths (0 expected; evidence dir is untracked by design)
+loop_devices:   /dev/loop-control /dev/loop0 /dev/loop1 /dev/loop10 /dev/loop11 /dev/loop12 /dev/loop13 /dev/loop14 /dev/loop15 /dev/loop16 /dev/loop17 /dev/loop18 /dev/loop19 /dev/loop2 /dev/loop20 /dev/loop3 /dev/loop4 /dev/loop5 /dev/loop6 /dev/loop7 /dev/loop8 /dev/loop9 
+cap_sys_admin:  cap_sys_admin
+================================================================================
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.46
+   Compiling adad-core v0.1.0 (/root/ADAD/crates/adad-core)
+   Compiling itoa v1.0.18
+   Compiling cfg-if v1.0.4
+   Compiling ident_case v1.0.1
+   Compiling strsim v0.11.1
+   Compiling allocator-api2 v0.2.21
+   Compiling equivalent v1.0.2
+   Compiling foldhash v0.2.0
+   Compiling rustversion v1.0.22
+   Compiling zmij v1.0.21
+   Compiling thiserror v2.0.18
+   Compiling either v1.16.0
+   Compiling heck v0.5.0
+   Compiling serde_core v1.0.228
+   Compiling hashbrown v0.16.1
+   Compiling itertools v0.14.0
+   Compiling hashbrown v0.17.1
+   Compiling unicode-segmentation v1.13.3
+   Compiling castaway v0.2.4
+   Compiling shlex v2.0.1
+   Compiling syn v2.0.118
+   Compiling static_assertions v1.1.0
+   Compiling memchr v2.8.2
+   Compiling unicode-width v0.2.2
+   Compiling find-msvc-tools v0.1.9
+   Compiling instability v0.3.12
+   Compiling bitflags v2.13.0
+   Compiling ryu v1.0.23
+   Compiling cc v1.2.65
+   Compiling compact_str v0.9.1
+   Compiling lru v0.18.0
+   Compiling unicode-truncate v2.0.1
+   Compiling indoc v2.0.7
+   Compiling libc v0.2.186
+   Compiling serde v1.0.228
+   Compiling pin-project-lite v0.2.17
+   Compiling line-clipping v0.3.7
+   Compiling serde_json v1.0.150
+   Compiling ring v0.17.14
+   Compiling bytes v1.12.0
+   Compiling autocfg v1.5.1
+   Compiling futures-sink v0.3.32
+   Compiling futures-core v0.3.32
+warning: ring@0.17.14: Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-linux-musl-gcc": No such file or directory (os error 2)
+warning: ring@0.17.14: Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-linux-musl-gcc": No such file or directory (os error 2)
+error: failed to run custom build command for `ring v0.17.14`
+
+Caused by:
+  process didn't exit successfully: `/root/ADAD/target/release/build/ring-b2f2d9627cd2f594/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-env-changed=CARGO_MANIFEST_DIR
+  cargo:rerun-if-env-changed=CARGO_PKG_NAME
+  cargo:rerun-if-env-changed=CARGO_PKG_VERSION_MAJOR
+  cargo:rerun-if-env-changed=CARGO_PKG_VERSION_MINOR
+  cargo:rerun-if-env-changed=CARGO_PKG_VERSION_PATCH
+  cargo:rerun-if-env-changed=CARGO_PKG_VERSION_PRE
+  cargo:rerun-if-env-changed=CARGO_MANIFEST_LINKS
+  cargo:rerun-if-env-changed=RING_PREGENERATE_ASM
+  cargo:rerun-if-env-changed=OUT_DIR
+  cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ARCH
+  cargo:rerun-if-env-changed=CARGO_CFG_TARGET_OS
+  cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ENV
+  cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ENDIAN
+  cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-musl
+  CC_x86_64-unknown-linux-musl = None
+  cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_musl
+  CC_x86_64_unknown_linux_musl = None
+  cargo:rerun-if-env-changed=TARGET_CC
+  TARGET_CC = None
+  cargo:rerun-if-env-changed=CC
+  CC = None
+  cargo:rerun-if-env-changed=CROSS_COMPILE
+  CROSS_COMPILE = None
+  PATH = Some(/root/.cargo/bin:[HOME]/admin/.npm-global/bin:[HOME]/linuxbrew/.linuxbrew/bin:[HOME]/linuxbrew/.linuxbrew/sbin:[HOME]/hermes-env/bin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin)
+  cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+  cargo:warning=Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-linux-musl-gcc": No such file or directory (os error 2)
+  cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+  CRATE_CC_NO_DEFAULTS = None
+  cargo:rerun-if-env-changed=CFLAGS
+  CFLAGS = None
+  cargo:rerun-if-env-changed=TARGET_CFLAGS
+  TARGET_CFLAGS = None
+  cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_musl
+  CFLAGS_x86_64_unknown_linux_musl = None
+  cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-musl
+  CFLAGS_x86_64-unknown-linux-musl = None
+  cargo:warning=Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-linux-musl-gcc": No such file or directory (os error 2)
+
+  --- stderr
+
+
+  error occurred in cc-rs: failed to find tool "x86_64-linux-musl-gcc": No such file or directory (os error 2)
+
+
+warning: build failed, waiting for other jobs to finish...
+================================================================================
+exit_code:      101
+finished:       2026-09-07T18:33:45Z
+================================================================================

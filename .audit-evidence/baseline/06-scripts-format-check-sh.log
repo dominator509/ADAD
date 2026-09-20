@@ -1,0 +1,21 @@
+================================================================================
+ADAD BASELINE EVIDENCE  (task t_bf7d4ee4)
+log:            /root/ADAD/.audit-evidence/baseline/06-scripts-format-check-sh.log
+started:        2026-09-07T18:33:56Z
+command_line:   /bin/sh scripts/format-check.sh
+working_dir:    /root/ADAD
+shell:          bash (orchestrator) -> /bin/sh for scripts / real cargo for cargo cmds
+resolved_bin:   /bin/sh
+env:            RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+env:            PATH=/root/.cargo/bin:[HOME]/admin/.npm-global/bin:[HOME]/linuxbrew/.linuxbrew/bin:[HOME]/linuxbrew/.linuxbrew/sbin:[HOME]/hermes-env/bin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+host:           Linux 6.8.0-106-generic x86_64  UTC
+repo_head:      03e865bd634af30b39226578dd6257cb5a47ec59
+git_status:     0 modified tracked paths (0 expected; evidence dir is untracked by design)
+loop_devices:   /dev/loop-control /dev/loop0 /dev/loop1 /dev/loop10 /dev/loop11 /dev/loop12 /dev/loop13 /dev/loop14 /dev/loop15 /dev/loop16 /dev/loop17 /dev/loop18 /dev/loop19 /dev/loop2 /dev/loop20 /dev/loop3 /dev/loop4 /dev/loop5 /dev/loop6 /dev/loop7 /dev/loop8 /dev/loop9 
+cap_sys_admin:  cap_sys_admin
+================================================================================
+format check: ok
+================================================================================
+exit_code:      0
+finished:       2026-09-07T18:33:56Z
+================================================================================

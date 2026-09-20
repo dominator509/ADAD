@@ -1,0 +1,595 @@
+================================================================================
+ADAD FINAL EVIDENCE  (task t_bd3bc731 — fix + rerun)
+log:            /root/ADAD/.audit-evidence/final/02-cargo-test-workspace-locked.log
+started:        2026-09-07T18:48:14Z
+command_line:   /root/.cargo/bin/cargo test --workspace --locked
+working_dir:    /root/ADAD
+shell:          bash (real cargo via /root/.cargo/bin; scripts via /bin/sh)
+env:            RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+host:           Linux 6.8.0-106-generic x86_64  GNU/Linux  UTC
+repo_head:      03e865bd634af30b39226578dd6257cb5a47ec59
+git_status:     2 modified tracked paths
+loop_devices:   /dev/loop-control /dev/loop0 /dev/loop1 /dev/loop10 /dev/loop11 /dev/loop12 /dev/loop13 /dev/loop14 /dev/loop15 /dev/loop16 /dev/loop17 /dev/loop18 /dev/loop19 /dev/loop2 /dev/loop20 /dev/loop3 /dev/loop4 /dev/loop5 /dev/loop6 /dev/loop7 /dev/loop8 /dev/loop9 
+cap_eff:        000001ffffffffff
+================================================================================ 
+   Compiling forge v0.1.0 (/root/ADAD/crates/forge)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.99s
+     Running unittests src/lib.rs (target/debug/deps/adad_core-be6a8d1ffe7bb6c7)
+
+running 2 tests
+test egress::tests::fallback_ready_requires_every_leak_guard ... ok
+test logging::tests::sensitive_fields_are_redacted_at_emit_boundary ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/config.rs (target/debug/deps/config-2bc6e30c990dcbc3)
+
+running 6 tests
+test decodes_basic_string_escapes_symmetrically ... ok
+test rejects_invalid_venice_anonymized_combo ... ok
+test rejects_unknown_keys ... ok
+test parses_from_bytes ... ok
+test parses_and_validates_a_positive_config ... ok
+test rejects_unknown_and_incomplete_string_escapes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/core.rs (target/debug/deps/core-1ea437c52889e66e)
+
+running 5 tests
+test zero_clock_epoch_is_deterministic_from_seed ... ok
+test zero_clock_epoch_source_avoids_host_clock_calls ... ok
+test session_identity_debug_is_redacted ... ok
+test session_identity_rejects_invalid_email ... ok
+test provider_strings_are_stable ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/error.rs (target/debug/deps/error-49a39c12bf64fc25)
+
+running 2 tests
+test each_variant_has_a_stable_message_and_exit_code ... ok
+test rendered_errors_never_echo_secret_like_strings ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/redaction_logging.rs (target/debug/deps/redaction_logging-58bc0ccea8869031)
+
+running 2 tests
+test redaction_logger_is_in_memory_only ... ok
+test redaction_secret_bearing_events_emit_no_secret_material ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/regression_egress_snapshot.rs (target/debug/deps/regression_egress_snapshot-7bf7196cf8f2472f)
+
+running 1 test
+test regression_fallback_requires_all_leak_guards ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/agent_coding-924cc3f93671241b)
+
+running 11 tests
+test client::tests::chat_message_user_sets_role ... ok
+test client::tests::parses_standard_completion ... ok
+test client::tests::parses_stream_completion ... ok
+test execution::tests::native_tools_keep_their_own_name ... ok
+test mcp::tests::normalization_matches_separator_collapse_rules ... ok
+test mcp::tests::qualified_names_keep_the_claude_code_shape ... ok
+test health::tests::failed_probe_query_maps_to_unknown ... ok
+test execution::tests::registry_tracks_mixed_native_and_mcp_tools ... ok
+test client::tests::endpoint_accepts_https_for_fallback_providers ... ok
+test client::tests::endpoint_joins_v1_chat_path ... ok
+test execution::tests::mcp_tools_use_claude_code_style_qualification ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/agent_coding-3eaf343f37f011fe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_loop.rs (target/debug/deps/agent_loop-42d90337c2275329)
+
+running 3 tests
+test loop_runs_registered_tool_and_returns_final_answer ... ok
+test loop_respects_iteration_budget ... ok
+test only_agent_coding_imports_mcp_runtime_crates ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/alerts.rs (target/debug/deps/alerts-14fd72c3da3c0115)
+
+running 3 tests
+test alert_labels_are_stable_for_all_conditions ... ok
+test alerts_do_not_render_when_conditions_are_safe ... ok
+test alerts_render_all_security_banners_with_text_labels ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/contract.rs (target/debug/deps/contract-cd6bb4b8c5ddb665)
+
+running 1 test
+test client_sends_openai_compatible_chat_requests_for_each_base_url ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/egress_guard.rs (target/debug/deps/egress_guard-65837027de4fc966)
+
+running 4 tests
+test fallback_request_uses_leakguard_snapshot_before_socket_write ... ok
+test fallback_request_is_blocked_by_default_until_egress_is_authorized ... ok
+test fallback_request_is_blocked_before_socket_write_when_tunnel_inactive ... ok
+test local_provider_is_unaffected_by_inactive_fallback_tunnel ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/failure_egress_guard.rs (target/debug/deps/failure_egress_guard-64a71b22340b749c)
+
+running 1 test
+test failure_unsafe_fallback_returns_egress_blocked_without_partial_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/failure_provider.rs (target/debug/deps/failure_provider-d5dff7540e3e3d72)
+
+running 1 test
+test failure_provider_rejects_unsupported_url_without_socket_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/regression_egress_guard.rs (target/debug/deps/regression_egress_guard-bdd0ac57e422e4af)
+
+running 1 test
+test regression_fallback_request_is_blocked_before_socket_write_when_leakguard_is_unsafe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/regression_stream_contract.rs (target/debug/deps/regression_stream_contract-d7b5d611b310a17c)
+
+running 1 test
+test regression_stream_chat_sets_stream_true_and_parses_sse ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/status_accuracy.rs (target/debug/deps/status_accuracy-56bf447f596546e7)
+
+running 2 tests
+test status_accuracy_reflects_health_report_including_unknown ... ok
+test status_accuracy_query_failure_becomes_unknown_not_stale_ok ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/tui_acceptance.rs (target/debug/deps/tui_acceptance-30d8f0e8d12aff98)
+
+running 10 tests
+test headless_driver_records_keyboard_input_without_mouse_paths ... ok
+test agent_chat_renders_provider_model_and_empty_state ... ok
+test crafted_control_sequences_are_escaped_before_rendering ... ok
+test agent_chat_error_state_uses_redacted_error_message ... ok
+test high_contrast_theme_is_selectable ... ok
+test agent_chat_streaming_delta_renders_incrementally ... ok
+test headless_driver_renders_a_loading_scaffold ... ok
+test agent_chat_scripted_keys_reach_send_and_loading_state ... ok
+test status_error_state_has_text_label_not_color_only ... ok
+test status_monitor_reflects_mocked_daemon_states_including_unknown ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/venice.rs (target/debug/deps/venice-34870347f832b9c5)
+
+running 4 tests
+test venice_anonymized_model_requires_explicit_opt_in ... ok
+test default_provider_is_local_with_loopback_model_defaults ... ok
+test venice_anonymized_opt_in_returns_warning_marker ... ok
+test venice_private_model_is_allowed_by_default ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/forge-84a86ed9b6a5c296)
+
+running 4 tests
+test vault::tests::config_renderer_round_trips_the_default_shape ... ok
+test vault::tests::backup_path_is_publicly_exposed_through_vault ... ok
+test vault::tests::backup_paths_keep_the_original_name_and_add_bak_suffix ... ok
+test vault::tests::config_renderer_round_trips_escaped_values ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/forge-8d279d93db112f5e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/failure_wrong_passphrase.rs (target/debug/deps/failure_wrong_passphrase-e8f96842b18f4dcb)
+
+running 1 test
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+No key available with this passphrase.
+test failure_wrong_passphrase_leaves_vault_locked ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.41s
+
+     Running tests/regression_vault_upgrade.rs (target/debug/deps/regression_vault_upgrade-028607e2c8568f41)
+
+running 1 test
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+Warning: keyslot operation could fail as it requires more than available memory.
+Warning: keyslot operation could fail as it requires more than available memory.
+test regression_vault_upgrade_keeps_backup_and_payload ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 23.52s
+
+     Running tests/vault_boundary.rs (target/debug/deps/vault_boundary-b2103e7109031c5b)
+
+running 1 test
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+test vault_write_api_rejects_paths_outside_the_mount_root ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.86s
+
+     Running tests/vault_roundtrip.rs (target/debug/deps/vault_roundtrip-1c2f403da3242d8a)
+
+running 5 tests
+test command_shapes_match_expected_loopback_luks_flow ... ok
+test loop_image_harness_exposes_distinct_paths_and_mapper_name ... ok
+test helper_reports_missing_host_tools_without_touching_real_devices ... ok
+Warning: keyslot operation could fail as it requires more than available memory.
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+No key available with this passphrase.
+Warning: keyslot operation could fail as it requires more than available memory.
+test wrong_passphrase_fails_cleanly_when_runtime_is_available ... ok
+Warning: keyslot operation could fail as it requires more than available memory.
+test vault_roundtrip_runs_when_linux_host_tools_are_available has been running for over 60 seconds
+Warning: keyslot operation could fail as it requires more than available memory.
+test vault_roundtrip_runs_when_linux_host_tools_are_available ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 64.22s
+
+     Running tests/vault_upgrade.rs (target/debug/deps/vault_upgrade-becc92fc40b4819f)
+
+running 1 test
+Warning: keyslot operation could fail as it requires more than available memory.
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+Warning: keyslot operation could fail as it requires more than available memory.
+Warning: keyslot operation could fail as it requires more than available memory.
+Warning: keyslot operation could fail as it requires more than available memory.
+test vault_upgrade_makes_a_backup_and_preserves_data ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.47s
+
+     Running unittests src/lib.rs (target/debug/deps/git_spoof-0facfda11b234bfa)
+
+running 2 tests
+test rewrite::tests::rewrite_sets_author_committer_and_fixed_utc_timestamp ... ok
+test rewrite::tests::rewrite_strips_real_metadata_from_identity_fields ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/git_spoof-3d618f983a69f373)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/regression_stable_pseudonym.rs (target/debug/deps/regression_stable_pseudonym-abc5854d50dbd827)
+
+running 1 test
+test regression_git_identity_is_stable_and_real_metadata_stays_stripped ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rewrite.rs (target/debug/deps/rewrite-c01a50cd58e779bc)
+
+running 3 tests
+test rewrite_strips_real_name_email_and_local_timezone ... ok
+test rewrite_outputs_stable_pseudonym_and_normalized_timestamp ... ok
+test rewrite_keeps_identity_stable_across_commits_without_rotation ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/leakguard-8b1788a388a70d29)
+
+running 13 tests
+test dms::tests::expiry_wipes_header_on_image ... ok
+test firewall::tests::drop_all_permits_no_egress_classes ... ok
+test firewall::tests::default_drop_only_allows_requested_tunnel_classes ... ok
+test killswitch::tests::ambiguity_drops_all_instead_of_guessing_safe_posture ... ok
+test killswitch::tests::arm_installs_default_drop_with_tor_and_wireguard_allow_list ... ok
+test killswitch::tests::arm_without_tor_fails_closed ... ok
+test killswitch::tests::healthy_change_with_wireguard_down_keeps_tor_only_default_drop ... ok
+test killswitch::tests::unknown_tunnel_state_is_not_allowed_to_pass ... ok
+test netlink::tests::simulated_interface_down_maps_to_drop_all ... ok
+test mac::tests::randomized_mac_sets_local_bit_and_clears_multicast_bit ... ok
+test routing::tests::leak_free_posture_routes_only_through_tor_or_wireguard ... ok
+test killswitch::tests::interface_down_or_tunnel_loss_drops_all ... ok
+test killswitch::tests::new_killswitch_starts_fail_closed ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/leakguard-0cff85f8b20c6c18)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dms.rs (target/debug/deps/dms-91b76cb5d6aa2032)
+
+running 5 tests
+test tor_ntp_regression_fails_closed_by_wiping_header ... ok
+test panic_path_wipes_ram_and_image_header_in_sandbox ... ok
+test dms_expiry_wipes_luks_header_on_image_only ... ok
+test vault_access_refreshes_tor_ntp_deadline ... ok
+test frozen_local_clock_does_not_extend_tor_ntp_window ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/failure_dms.rs (target/debug/deps/failure_dms-f48fa685a1dbffde)
+
+running 2 tests
+test failure_tor_ntp_regression_fails_closed_by_wiping_header ... ok
+test failure_zero_dms_window_is_rejected ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mac.rs (target/debug/deps/mac-d7855d31552d81a8)
+
+running 4 tests
+test randomized_mac_is_stable_within_a_session_for_one_interface ... ok
+test randomized_mac_changes_across_sessions ... ok
+test randomized_mac_does_not_use_a_real_vendor_oui_blend ... ok
+test randomized_mac_is_locally_administered_unicast ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/netlink_drop.rs (target/debug/deps/netlink_drop-cee6c5615ce27344)
+
+running 2 tests
+test simulated_netlink_interface_drop_forces_drop_all_within_target_latency ... ok
+test simulated_netlink_tunnel_loss_forces_drop_all_within_target_latency ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/regression_security_flows.rs (target/debug/deps/regression_security_flows-8c426c27c25b0225)
+
+running 2 tests
+test regression_tunnel_loss_forces_drop_all_and_blocks_fallback_snapshot ... ok
+test regression_dms_ignores_frozen_local_clock_and_wipes_image_header ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/routing.rs (target/debug/deps/routing-bd54271af4021f22)
+
+running 5 tests
+test egress_snapshot_requires_wireguard_and_every_leak_block ... ok
+test firewall_model_blocks_direct_dns_ipv6_and_discovery_egress ... ok
+test routing_posture_blocks_ipv6_and_local_discovery_classes ... ok
+test routing_posture_validates_as_leak_free ... ok
+test routing_posture_sends_general_to_tor_and_api_to_wireguard ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/metafuse-b042adedfdfca74b)
+
+running 1 test
+test fuse::tests::scrubbed_metadata_uses_fake_owner_and_hides_real_timestamps ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/metafuse-29130d81139dcd00)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/failure_scrub_inputs.rs (target/debug/deps/failure_scrub_inputs-5887cad5fe8b540e)
+
+running 2 tests
+test failure_blank_vault_path_is_refused ... ok
+test failure_root_fake_owner_is_refused ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fuse.rs (target/debug/deps/fuse-17659c40eb5586c1)
+
+running 4 tests
+test presented_metadata_strips_exif_and_real_owner_fields ... ok
+test invalid_scrub_inputs_are_rejected ... ok
+test presented_metadata_randomizes_all_real_timestamps ... ok
+test scrubbed_timestamps_are_stable_for_one_session_and_change_across_sessions ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/persona-310f1e8700348b1c)
+
+running 3 tests
+test store::tests::invalid_identity_payload_fails_cleanly ... ok
+test store::tests::identity_round_trips_through_the_vault_layout ... ok
+test store::tests::identity_debug_output_stays_redacted_after_load ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/persona-2d081d95177fb09d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/vps_deploy-e6a2d9a0b1604840)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/vps_deploy-77a9c7e51e3092cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/failure_ssh.rs (target/debug/deps/failure_ssh-47f001db7fb181b7)
+
+running 1 test
+test failure_ssh_nonzero_exit_returns_typed_error_after_one_attempt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tui_acceptance.rs (target/debug/deps/tui_acceptance-abe1bce75057dad3)
+
+running 3 tests
+test vps_error_state_uses_redacted_message ... ok
+test vps_empty_state_renders_keyboard_actions ... ok
+test vps_provision_action_is_keyboard_reachable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/vps_mock.rs (target/debug/deps/vps_mock-d6bcd8e6244db3b2)
+
+running 2 tests
+test provision_failure_maps_to_typed_error ... ok
+test provision_runs_setup_script_against_mock_ssh_under_two_minutes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/xmr_wallet-a1665bf0e75d4225)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/xmr_wallet-2566eae2df4ec6e4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/failure_wallet_rpc.rs (target/debug/deps/failure_wallet_rpc-33ea531a8833f584)
+
+running 1 test
+test failure_wallet_rpc_error_returns_typed_error_without_success_payload ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/tui_acceptance.rs (target/debug/deps/tui_acceptance-0371c50f572abfc8)
+
+running 4 tests
+test wallet_balance_action_is_keyboard_reachable ... ok
+test wallet_address_action_redacts_address ... ok
+test wallet_empty_state_renders_keyboard_actions ... ok
+test wallet_error_state_uses_redacted_message ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/wallet_mock.rs (target/debug/deps/wallet_mock-95727a73ff3adf66)
+
+running 2 tests
+test wallet_rpc_error_maps_to_typed_error ... ok
+test wallet_methods_use_monero_json_rpc_shape_against_mock ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests adad_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests agent_coding
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests forge
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests git_spoof
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests leakguard
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests metafuse
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests persona
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests vps_deploy
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests xmr_wallet
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+================================================================================ 
+exit_code:      0
+finished:       2026-09-07T18:51:02Z
+wall_seconds:   168
+================================================================================ 

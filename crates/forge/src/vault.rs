@@ -355,9 +355,7 @@ impl SensitiveBytes {
     }
 
     fn zeroize(&mut self) {
-        for byte in &mut self.0 {
-            *byte = 0;
-        }
+        self.0.fill(0);
     }
 }
 
@@ -466,7 +464,7 @@ fn mapper_name_for(path: &Path) -> String {
         .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
         .collect::<String>();
 
-    format!("adad-{stem}-{}", std::process::id())
+    format!("adad-{stem}-{}-{}", std::process::id(), unique_suffix())
 }
 
 fn unique_mount_dir(mapper_name: &str) -> PathBuf {

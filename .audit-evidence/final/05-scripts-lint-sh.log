@@ -1,0 +1,32 @@
+================================================================================
+ADAD FINAL EVIDENCE  (task t_bd3bc731 — fix + rerun)
+log:            /root/ADAD/.audit-evidence/final/05-scripts-lint-sh.log
+started:        2026-09-07T18:52:09Z
+command_line:   /bin/sh scripts/lint.sh
+working_dir:    /root/ADAD
+shell:          bash (real cargo via /root/.cargo/bin; scripts via /bin/sh)
+env:            RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+host:           Linux 6.8.0-106-generic x86_64  GNU/Linux  UTC
+repo_head:      03e865bd634af30b39226578dd6257cb5a47ec59
+git_status:     2 modified tracked paths
+loop_devices:   /dev/loop-control /dev/loop0 /dev/loop1 /dev/loop10 /dev/loop11 /dev/loop12 /dev/loop13 /dev/loop14 /dev/loop15 /dev/loop16 /dev/loop17 /dev/loop18 /dev/loop19 /dev/loop2 /dev/loop20 /dev/loop3 /dev/loop4 /dev/loop5 /dev/loop6 /dev/loop7 /dev/loop8 /dev/loop9 
+cap_eff:        000001ffffffffff
+================================================================================ 
+    Checking ureq v3.4.0
+    Checking rmcp v2.1.0
+    Checking forge v0.1.0 (/root/ADAD/crates/forge)
+    Checking git-spoof v0.1.0 (/root/ADAD/crates/git-spoof)
+    Checking metafuse v0.1.0 (/root/ADAD/crates/metafuse)
+    Checking persona v0.1.0 (/root/ADAD/crates/persona)
+    Checking vps-deploy v0.1.0 (/root/ADAD/crates/vps-deploy)
+    Checking xmr-wallet v0.1.0 (/root/ADAD/crates/xmr-wallet)
+    Checking leakguard v0.1.0 (/root/ADAD/crates/leakguard)
+    Checking adad-core v0.1.0 (/root/ADAD/crates/adad-core)
+    Checking agent-coding v0.1.0 (/root/ADAD/crates/agent-coding)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5m 14s
+lint: ok
+================================================================================ 
+exit_code:      0
+finished:       2026-09-07T18:57:24Z
+wall_seconds:   315
+================================================================================ 

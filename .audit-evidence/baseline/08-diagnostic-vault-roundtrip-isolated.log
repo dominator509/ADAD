@@ -1,0 +1,37 @@
+================================================================================
+ADAD BASELINE EVIDENCE — DIAGNOSTIC RERUN (task t_bf7d4ee4)
+log:            /root/ADAD/.audit-evidence/baseline/08-diagnostic-vault-roundtrip-isolated.log
+status:         SUPPLEMENTARY DIAGNOSTIC — NOT part of the numbered baseline matrix;
+                run to characterize the 02-cargo-test-workspace-locked failure.
+started:        2026-09-07T18:35:17Z
+command_line:   cargo test -p forge --test vault_roundtrip vault_roundtrip_runs_when_linux_host_tools_are_available --locked
+working_dir:    /root/ADAD
+env:            RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+reason:         02 log shows vault_roundtrip_runs_when_linux_host_tools_are_available FAILED with
+                'vault image is created: Error { Io, message: I/O error }' at crates/forge/tests/vault_roundtrip.rs:178
+                ONLY when the full workspace suite runs (parallel LUKS tests, keyslot memory pressure).
+================================================================================
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.82s
+     Running tests/vault_roundtrip.rs (target/debug/deps/vault_roundtrip-1c2f403da3242d8a)
+
+running 1 test
+test vault_roundtrip_runs_when_linux_host_tools_are_available has been running for over 60 seconds
+Warning: keyslot operation could fail as it requires more than available memory.
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+Warning: keyslot operation could fail as it requires more than available memory.
+Warning: keyslot operation could fail as it requires more than available memory.
+test vault_roundtrip_runs_when_linux_host_tools_are_available ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 96.36s
+
+================================================================================
+exit_code:      0
+finished:       2026-09-07T18:37:10Z
+================================================================================

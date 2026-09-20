@@ -1,0 +1,290 @@
+================================================================================
+ADAD BASELINE EVIDENCE  (task t_bf7d4ee4)
+log:            /root/ADAD/.audit-evidence/baseline/02-cargo-test-workspace-locked.log
+started:        2026-09-07T18:32:29Z
+command_line:   /root/.cargo/bin/cargo test --workspace --locked
+working_dir:    /root/ADAD
+shell:          bash (orchestrator) -> /bin/sh for scripts / real cargo for cargo cmds
+resolved_bin:   /root/.cargo/bin/cargo
+env:            RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+env:            PATH=/root/.cargo/bin:[HOME]/admin/.npm-global/bin:[HOME]/linuxbrew/.linuxbrew/bin:[HOME]/linuxbrew/.linuxbrew/sbin:[HOME]/hermes-env/bin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+host:           Linux 6.8.0-106-generic x86_64  UTC
+repo_head:      03e865bd634af30b39226578dd6257cb5a47ec59
+git_status:     0 modified tracked paths (0 expected; evidence dir is untracked by design)
+loop_devices:   /dev/loop-control /dev/loop0 /dev/loop1 /dev/loop10 /dev/loop11 /dev/loop12 /dev/loop13 /dev/loop14 /dev/loop15 /dev/loop16 /dev/loop17 /dev/loop18 /dev/loop2 /dev/loop3 /dev/loop4 /dev/loop5 /dev/loop6 /dev/loop7 /dev/loop8 /dev/loop9 
+cap_sys_admin:  cap_sys_admin
+================================================================================
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running unittests src/lib.rs (target/debug/deps/adad_core-be6a8d1ffe7bb6c7)
+
+running 2 tests
+test egress::tests::fallback_ready_requires_every_leak_guard ... ok
+test logging::tests::sensitive_fields_are_redacted_at_emit_boundary ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/config.rs (target/debug/deps/config-2bc6e30c990dcbc3)
+
+running 6 tests
+test rejects_unknown_keys ... ok
+test decodes_basic_string_escapes_symmetrically ... ok
+test rejects_invalid_venice_anonymized_combo ... ok
+test parses_and_validates_a_positive_config ... ok
+test rejects_unknown_and_incomplete_string_escapes ... ok
+test parses_from_bytes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/core.rs (target/debug/deps/core-1ea437c52889e66e)
+
+running 5 tests
+test session_identity_debug_is_redacted ... ok
+test provider_strings_are_stable ... ok
+test session_identity_rejects_invalid_email ... ok
+test zero_clock_epoch_source_avoids_host_clock_calls ... ok
+test zero_clock_epoch_is_deterministic_from_seed ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/error.rs (target/debug/deps/error-49a39c12bf64fc25)
+
+running 2 tests
+test each_variant_has_a_stable_message_and_exit_code ... ok
+test rendered_errors_never_echo_secret_like_strings ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/redaction_logging.rs (target/debug/deps/redaction_logging-58bc0ccea8869031)
+
+running 2 tests
+test redaction_logger_is_in_memory_only ... ok
+test redaction_secret_bearing_events_emit_no_secret_material ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/regression_egress_snapshot.rs (target/debug/deps/regression_egress_snapshot-7bf7196cf8f2472f)
+
+running 1 test
+test regression_fallback_requires_all_leak_guards ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/agent_coding-924cc3f93671241b)
+
+running 11 tests
+test client::tests::chat_message_user_sets_role ... ok
+test client::tests::parses_stream_completion ... ok
+test client::tests::endpoint_joins_v1_chat_path ... ok
+test client::tests::parses_standard_completion ... ok
+test execution::tests::registry_tracks_mixed_native_and_mcp_tools ... ok
+test health::tests::failed_probe_query_maps_to_unknown ... ok
+test execution::tests::native_tools_keep_their_own_name ... ok
+test mcp::tests::normalization_matches_separator_collapse_rules ... ok
+test client::tests::endpoint_accepts_https_for_fallback_providers ... ok
+test mcp::tests::qualified_names_keep_the_claude_code_shape ... ok
+test execution::tests::mcp_tools_use_claude_code_style_qualification ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/agent_coding-3eaf343f37f011fe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_loop.rs (target/debug/deps/agent_loop-42d90337c2275329)
+
+running 3 tests
+test loop_respects_iteration_budget ... ok
+test only_agent_coding_imports_mcp_runtime_crates ... ok
+test loop_runs_registered_tool_and_returns_final_answer ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/alerts.rs (target/debug/deps/alerts-14fd72c3da3c0115)
+
+running 3 tests
+test alert_labels_are_stable_for_all_conditions ... ok
+test alerts_do_not_render_when_conditions_are_safe ... ok
+test alerts_render_all_security_banners_with_text_labels ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/contract.rs (target/debug/deps/contract-cd6bb4b8c5ddb665)
+
+running 1 test
+test client_sends_openai_compatible_chat_requests_for_each_base_url ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/egress_guard.rs (target/debug/deps/egress_guard-65837027de4fc966)
+
+running 4 tests
+test fallback_request_uses_leakguard_snapshot_before_socket_write ... ok
+test fallback_request_is_blocked_by_default_until_egress_is_authorized ... ok
+test fallback_request_is_blocked_before_socket_write_when_tunnel_inactive ... ok
+test local_provider_is_unaffected_by_inactive_fallback_tunnel ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/failure_egress_guard.rs (target/debug/deps/failure_egress_guard-64a71b22340b749c)
+
+running 1 test
+test failure_unsafe_fallback_returns_egress_blocked_without_partial_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/failure_provider.rs (target/debug/deps/failure_provider-d5dff7540e3e3d72)
+
+running 1 test
+test failure_provider_rejects_unsupported_url_without_socket_write ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/regression_egress_guard.rs (target/debug/deps/regression_egress_guard-bdd0ac57e422e4af)
+
+running 1 test
+test regression_fallback_request_is_blocked_before_socket_write_when_leakguard_is_unsafe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/regression_stream_contract.rs (target/debug/deps/regression_stream_contract-d7b5d611b310a17c)
+
+running 1 test
+test regression_stream_chat_sets_stream_true_and_parses_sse ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/status_accuracy.rs (target/debug/deps/status_accuracy-56bf447f596546e7)
+
+running 2 tests
+test status_accuracy_reflects_health_report_including_unknown ... ok
+test status_accuracy_query_failure_becomes_unknown_not_stale_ok ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tui_acceptance.rs (target/debug/deps/tui_acceptance-30d8f0e8d12aff98)
+
+running 10 tests
+test agent_chat_error_state_uses_redacted_error_message ... ok
+test headless_driver_records_keyboard_input_without_mouse_paths ... ok
+test crafted_control_sequences_are_escaped_before_rendering ... ok
+test agent_chat_renders_provider_model_and_empty_state ... ok
+test agent_chat_streaming_delta_renders_incrementally ... ok
+test high_contrast_theme_is_selectable ... ok
+test status_monitor_reflects_mocked_daemon_states_including_unknown ... ok
+test headless_driver_renders_a_loading_scaffold ... ok
+test status_error_state_has_text_label_not_color_only ... ok
+test agent_chat_scripted_keys_reach_send_and_loading_state ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/venice.rs (target/debug/deps/venice-34870347f832b9c5)
+
+running 4 tests
+test default_provider_is_local_with_loopback_model_defaults ... ok
+test venice_anonymized_opt_in_returns_warning_marker ... ok
+test venice_private_model_is_allowed_by_default ... ok
+test venice_anonymized_model_requires_explicit_opt_in ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/forge-84a86ed9b6a5c296)
+
+running 4 tests
+test vault::tests::config_renderer_round_trips_escaped_values ... ok
+test vault::tests::config_renderer_round_trips_the_default_shape ... ok
+test vault::tests::backup_path_is_publicly_exposed_through_vault ... ok
+test vault::tests::backup_paths_keep_the_original_name_and_add_bak_suffix ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/forge-8d279d93db112f5e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/failure_wrong_passphrase.rs (target/debug/deps/failure_wrong_passphrase-e8f96842b18f4dcb)
+
+running 1 test
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+No key available with this passphrase.
+test failure_wrong_passphrase_leaves_vault_locked ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.22s
+
+     Running tests/regression_vault_upgrade.rs (target/debug/deps/regression_vault_upgrade-028607e2c8568f41)
+
+running 1 test
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+test regression_vault_upgrade_keeps_backup_and_payload ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.61s
+
+     Running tests/vault_boundary.rs (target/debug/deps/vault_boundary-b2103e7109031c5b)
+
+running 1 test
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+test vault_write_api_rejects_paths_outside_the_mount_root ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.54s
+
+     Running tests/vault_roundtrip.rs (target/debug/deps/vault_roundtrip-1c2f403da3242d8a)
+
+running 5 tests
+test helper_reports_missing_host_tools_without_touching_real_devices ... ok
+test loop_image_harness_exposes_distinct_paths_and_mapper_name ... ok
+test command_shapes_match_expected_loopback_luks_flow ... ok
+test vault_roundtrip_runs_when_linux_host_tools_are_available ... FAILED
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 12288 4k blocks and 12288 inodes
+
+Allocating group tables: 0/1   done                            
+Writing inode tables: 0/1   done                            
+Creating journal (1024 blocks): done
+Writing superblocks and filesystem accounting information: 0/1   done
+
+No key available with this passphrase.
+test wrong_passphrase_fails_cleanly_when_runtime_is_available ... ok
+
+failures:
+
+---- vault_roundtrip_runs_when_linux_host_tools_are_available stdout ----
+
+thread 'vault_roundtrip_runs_when_linux_host_tools_are_available' (2486690) panicked at crates/forge/tests/vault_roundtrip.rs:178:53:
+vault image is created: Error { variant: Io, message: I/O error }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    vault_roundtrip_runs_when_linux_host_tools_are_available
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.83s
+
+error: test failed, to rerun pass `-p forge --test vault_roundtrip`
+================================================================================
+exit_code:      101
+finished:       2026-09-07T18:33:36Z
+================================================================================

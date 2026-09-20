@@ -1,0 +1,33 @@
+================================================================================
+ADAD FINAL EVIDENCE  (task t_bd3bc731 — fix + rerun)
+log:            /root/ADAD/.audit-evidence/final/07-scripts-dependency-audit-sh.log
+started:        2026-09-07T18:57:25Z
+command_line:   /bin/sh scripts/dependency-audit.sh
+working_dir:    /root/ADAD
+shell:          bash (real cargo via /root/.cargo/bin; scripts via /bin/sh)
+env:            RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+host:           Linux 6.8.0-106-generic x86_64  GNU/Linux  UTC
+repo_head:      03e865bd634af30b39226578dd6257cb5a47ec59
+git_status:     2 modified tracked paths
+loop_devices:   /dev/loop-control /dev/loop0 /dev/loop1 /dev/loop10 /dev/loop11 /dev/loop12 /dev/loop13 /dev/loop14 /dev/loop15 /dev/loop16 /dev/loop17 /dev/loop18 /dev/loop19 /dev/loop2 /dev/loop20 /dev/loop3 /dev/loop4 /dev/loop5 /dev/loop6 /dev/loop7 /dev/loop8 /dev/loop9 
+cap_eff:        000001ffffffffff
+================================================================================ 
+    Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
+      Loaded 1242 security advisories (from /root/.cargo/advisory-db)
+    Updating crates.io index
+    Scanning Cargo.lock for vulnerabilities (149 crate dependencies)
+Crate:     lru
+Version:   0.18.0
+Warning:   unsound
+Title:     Potential use-after-free due to lack of panic safety in `LruCache::pop()`
+Date:      2026-05-12
+ID:        RUSTSEC-2026-0253
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0253
+
+warning: 1 allowed warning found
+dependency audit: ok
+================================================================================ 
+exit_code:      0
+finished:       2026-09-07T18:57:30Z
+wall_seconds:   5
+================================================================================ 
