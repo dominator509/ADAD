@@ -1,5 +1,6 @@
 /target
 /build
+.cargo-validation/
 *.img
 *.pass
 vendor/*/target

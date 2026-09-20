@@ -1,6 +1,16 @@
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::Path;
 use std::time::Duration;
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
+
 use adad_core::Error;
+
+const LUKS_MAGIC: [u8; 6] = *b"LUKS\xBA\xBE";
+const LUKS2_VERSION: u16 = 2;
+const IO_CHUNK_BYTES: usize = 8192;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct TorNtpTime {
@@ -82,6 +92,94 @@ impl LuksHeaderImage {
     }
 }
 
+/// A real LUKS2 header target restricted to a regular image file.
+///
+/// The regular-file restriction is deliberate: this backend cannot open a
+/// block device, so tests and the image-only DMS path cannot accidentally
+/// operate on a host disk.
+pub struct LuksHeaderFile {
+    file: File,
+    header_len: u64,
+}
+
+impl std::fmt::Debug for LuksHeaderFile {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("LuksHeaderFile")
+            .field("header_len", &self.header_len)
+            .finish()
+    }
+}
+
+impl LuksHeaderFile {
+    pub fn open(path: &Path, header_len: u64) -> Result<Self, Error> {
+        if header_len < 8 {
+            return Err(Error::VaultUnlock);
+        }
+
+        let metadata = fs::symlink_metadata(path).map_err(|_| Error::VaultUnlock)?;
+        if !metadata.file_type().is_file() || metadata.len() < header_len {
+            return Err(Error::VaultUnlock);
+        }
+
+        let mut options = OpenOptions::new();
+        options.read(true).write(true);
+        #[cfg(unix)]
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+        let mut file = options.open(path).map_err(|_| Error::VaultUnlock)?;
+
+        let mut prefix = [0_u8; 8];
+        file.read_exact(&mut prefix)
+            .map_err(|_| Error::VaultUnlock)?;
+        if prefix[..6] != LUKS_MAGIC || u16::from_be_bytes([prefix[6], prefix[7]]) != LUKS2_VERSION
+        {
+            return Err(Error::VaultUnlock);
+        }
+
+        file.seek(SeekFrom::Start(0)).map_err(|_| Error::Io)?;
+        Ok(Self { file, header_len })
+    }
+
+    #[must_use]
+    pub fn header_len(&self) -> u64 {
+        self.header_len
+    }
+
+    /// Zero and verify the selected LUKS2 header bytes, then flush them.
+    pub fn wipe_header(&mut self) -> Result<bool, Error> {
+        self.file.seek(SeekFrom::Start(0)).map_err(|_| Error::Io)?;
+        let zeros = [0_u8; IO_CHUNK_BYTES];
+        let mut remaining = self.header_len;
+        while remaining > 0 {
+            let count = usize::try_from(remaining)
+                .unwrap_or(IO_CHUNK_BYTES)
+                .min(IO_CHUNK_BYTES);
+            self.file
+                .write_all(&zeros[..count])
+                .map_err(|_| Error::Io)?;
+            remaining -= u64::try_from(count).expect("chunk size fits u64");
+        }
+        self.file.sync_all().map_err(|_| Error::Io)?;
+
+        self.file.seek(SeekFrom::Start(0)).map_err(|_| Error::Io)?;
+        let mut buffer = [0_u8; IO_CHUNK_BYTES];
+        let mut remaining = self.header_len;
+        while remaining > 0 {
+            let count = usize::try_from(remaining)
+                .unwrap_or(IO_CHUNK_BYTES)
+                .min(IO_CHUNK_BYTES);
+            self.file
+                .read_exact(&mut buffer[..count])
+                .map_err(|_| Error::Io)?;
+            if buffer[..count].iter().any(|byte| *byte != 0) {
+                return Err(Error::VaultUnlock);
+            }
+            remaining -= u64::try_from(count).expect("chunk size fits u64");
+        }
+        Ok(true)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RamSecret {
     bytes: Vec<u8>,
@@ -99,7 +197,18 @@ impl RamSecret {
     }
 
     fn wipe(&mut self) {
-        self.bytes.fill(0);
+        for byte in &mut self.bytes {
+            // SAFETY: each pointer is derived from a unique mutable slice
+            // reference and remains valid for this loop iteration.
+            unsafe { std::ptr::write_volatile(byte, 0) };
+        }
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl Drop for RamSecret {
+    fn drop(&mut self) {
+        self.wipe();
     }
 }
 
@@ -160,31 +269,47 @@ impl Dms {
         _local_clock: LocalClockTime,
         image: &mut LuksHeaderImage,
     ) -> Result<DmsOutcome, Error> {
+        match self.remaining(tor_ntp) {
+            Some(remaining) => Ok(DmsOutcome::Armed { remaining }),
+            None => {
+                image.wipe_header();
+                Ok(DmsOutcome::Expired {
+                    header_wiped: image.header_wiped(),
+                })
+            }
+        }
+    }
+
+    /// Evaluate against a real, disposable LUKS2 image file.
+    pub fn evaluate_file(
+        &mut self,
+        tor_ntp: TorNtpTime,
+        _local_clock: LocalClockTime,
+        image: &mut LuksHeaderFile,
+    ) -> Result<DmsOutcome, Error> {
+        match self.remaining(tor_ntp) {
+            Some(remaining) => Ok(DmsOutcome::Armed { remaining }),
+            None => Ok(DmsOutcome::Expired {
+                header_wiped: image.wipe_header()?,
+            }),
+        }
+    }
+
+    fn remaining(&mut self, tor_ntp: TorNtpTime) -> Option<Duration> {
         if self.state == DmsState::Expired {
-            image.wipe_header();
-            return Ok(DmsOutcome::Expired {
-                header_wiped: image.header_wiped(),
-            });
+            return None;
         }
 
         let Some(elapsed) = tor_ntp.duration_since(self.last_vault_access) else {
-            image.wipe_header();
             self.state = DmsState::Expired;
-            return Ok(DmsOutcome::Expired {
-                header_wiped: image.header_wiped(),
-            });
+            return None;
         };
 
         if elapsed >= self.window {
-            image.wipe_header();
             self.state = DmsState::Expired;
-            Ok(DmsOutcome::Expired {
-                header_wiped: image.header_wiped(),
-            })
+            None
         } else {
-            Ok(DmsOutcome::Armed {
-                remaining: self.window - elapsed,
-            })
+            Some(self.window - elapsed)
         }
     }
 }
@@ -208,6 +333,23 @@ pub fn panic_wipe(
     Ok(PanicWipeReport {
         ram_wiped_count: secrets.iter().filter(|secret| secret.is_wiped()).count(),
         header_wiped: image.header_wiped(),
+        image_only: true,
+    })
+}
+
+/// Wipe RAM secrets and a disposable LUKS2 image target together.
+pub fn panic_wipe_file(
+    secrets: &mut [RamSecret],
+    image: &mut LuksHeaderFile,
+) -> Result<PanicWipeReport, Error> {
+    for secret in secrets.iter_mut() {
+        secret.wipe();
+    }
+
+    let header_wiped = image.wipe_header()?;
+    Ok(PanicWipeReport {
+        ram_wiped_count: secrets.iter().filter(|secret| secret.is_wiped()).count(),
+        header_wiped,
         image_only: true,
     })
 }

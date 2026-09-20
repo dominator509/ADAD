@@ -1,3 +1,6 @@
+use std::path::Path;
+use std::process::{Command, Stdio};
+
 use adad_core::{Error, SessionIdentity};
 
 pub const FIXED_UTC_TIMESTAMP: &str = "2000-01-01T00:00:00Z";
@@ -67,6 +70,56 @@ pub fn rewrite(
         committer_timestamp: FIXED_UTC_TIMESTAMP.to_owned(),
         message: commit.message.clone(),
     })
+}
+
+/// Create one local Git commit with the stable ADAD identity and fixed UTC
+/// timestamps. The caller must have staged the intended changes already.
+pub fn commit(repo: &Path, message: &str, identity: &SessionIdentity) -> Result<String, Error> {
+    if message.trim().is_empty() {
+        return Err(Error::GitSpoof);
+    }
+
+    let rewritten = rewrite(
+        &CommitMetadata::new("", "", "", "", "", "", message),
+        identity,
+    )?;
+
+    let status = Command::new("git")
+        .current_dir(repo)
+        .args(["commit", "--quiet"])
+        .arg(format!("--message={}", rewritten.message))
+        .env("GIT_AUTHOR_NAME", &rewritten.author_name)
+        .env("GIT_AUTHOR_EMAIL", &rewritten.author_email)
+        .env("GIT_AUTHOR_DATE", &rewritten.author_timestamp)
+        .env("GIT_COMMITTER_NAME", &rewritten.committer_name)
+        .env("GIT_COMMITTER_EMAIL", &rewritten.committer_email)
+        .env("GIT_COMMITTER_DATE", &rewritten.committer_timestamp)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|_| Error::GitSpoof)?;
+    if !status.success() {
+        return Err(Error::GitSpoof);
+    }
+
+    let output = Command::new("git")
+        .current_dir(repo)
+        .args(["rev-parse", "--verify", "HEAD^{commit}"])
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .map_err(|_| Error::GitSpoof)?;
+    if !output.status.success() {
+        return Err(Error::GitSpoof);
+    }
+
+    let hash = String::from_utf8(output.stdout).map_err(|_| Error::GitSpoof)?;
+    let hash = hash.trim();
+    if hash.is_empty() || hash.chars().any(char::is_whitespace) {
+        return Err(Error::GitSpoof);
+    }
+    Ok(hash.to_owned())
 }
 
 #[cfg(test)]

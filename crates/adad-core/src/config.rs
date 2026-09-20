@@ -300,9 +300,7 @@ fn validate_url(value: Option<&str>, field: ConfigField, policy: UrlPolicy) -> R
 
     let valid = match policy {
         UrlPolicy::Https => raw.starts_with("https://"),
-        UrlPolicy::LoopbackHttp => {
-            raw.starts_with("http://127.0.0.1") || raw.starts_with("http://localhost")
-        }
+        UrlPolicy::LoopbackHttp => is_loopback_http_url(raw),
     };
 
     if valid {
@@ -310,4 +308,45 @@ fn validate_url(value: Option<&str>, field: ConfigField, policy: UrlPolicy) -> R
     } else {
         Err(Error::Config { field })
     }
+}
+
+fn is_loopback_http_url(raw: &str) -> bool {
+    let Some(rest) = raw.strip_prefix("http://") else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.is_empty() || authority.contains('@') {
+        return false;
+    }
+
+    let (host, port) = if let Some(bracketed) = authority.strip_prefix('[') {
+        let Some((host, suffix)) = bracketed.split_once(']') else {
+            return false;
+        };
+        let port = if suffix.is_empty() {
+            None
+        } else {
+            Some(suffix.strip_prefix(':').unwrap_or_default())
+        };
+        (host, port)
+    } else {
+        match authority.split_once(':') {
+            Some((host, port)) => (host, Some(port)),
+            None => (authority, None),
+        }
+    };
+
+    if host.is_empty() {
+        return false;
+    }
+    if let Some(port) = port {
+        if port.is_empty() || !port.chars().all(|character| character.is_ascii_digit()) {
+            return false;
+        }
+        if port.parse::<u16>().is_err() {
+            return false;
+        }
+    }
+
+    matches!(host, "127.0.0.1" | "localhost" | "::1")
 }

@@ -63,6 +63,8 @@ status=$?
 set -e
 
 for marker in \
+  'adad-leak-battery: llama-runtime: pass' \
+  'adad-leak-battery: agent-chat: pass' \
   'adad-leak-battery: static-tools: pass' \
   'adad-leak-battery: ipv6: pass' \
   'adad-leak-battery: killswitch: pass' \

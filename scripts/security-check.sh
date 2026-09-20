@@ -17,6 +17,12 @@ fi
 if git grep -nE 'net\.ipv6\.conf\..*disable_ipv6\s*=\s*0' 2>/dev/null | grep -q .; then
   fail "config enables IPv6 - constraint requires IPv6 disabled"
 fi
+# A link-loss reaction must install a complete drop-only ruleset. Flushing the
+# normal table by itself removes its policy chains and is fail-open.
+grep -q 'adad-killswitch-drop.nft' crates/leakguard/src/netlink.rs \
+  || fail "link-loss monitor has no fixed drop-only ruleset"
+grep -q 'adad-killswitch-drop.nft' live-build/hooks/0100-adad-hardening.hook.chroot \
+  || fail "image does not install the link-loss drop-only ruleset"
 
 # (b) Dependency vuln scan (delegated to dependency-audit.sh to avoid dupes).
 scripts/dependency-audit.sh >/dev/null

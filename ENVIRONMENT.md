@@ -3,17 +3,19 @@
 ## Required tools
 | Tool | Version (min) | Purpose |
 |---|---|---|
-| rustup + cargo | stable (1.75+) | build the Rust workspace |
+| rustup + cargo | 1.90.0 | build the Rust workspace |
 | musl target | `x86_64-unknown-linux-musl` | static core binaries |
 | cargo-audit | latest | dependency vuln scan |
 | cryptsetup | current | LUKS2 vault create/unlock/lock lifecycle in EP-003 |
 | util-linux (`losetup`, `mount`, `umount`) | current | loopback devices + filesystem mount cycle in EP-003 |
 | e2fsprogs (`mkfs.ext4`) | current | format the vault filesystem in EP-003 tests |
 | coreutils (`truncate`) | current | create sparse vault images in EP-003 tests |
-| live-build (`lb`) | Debian current | assemble the bootable image (EP-009) |
+| live-build (`lb`) | Debian snapshot 20260801 | assemble the bootable image (EP-009) |
 | squashfs-tools | current | SquashFS for the live image |
 | qemu-system-x86 | current | OS boot + leak-battery testing |
 | git | 2.x | version control; git-spoof wraps it |
+| openssh-client | current | Tor-bound SSH transport for VPS provisioning |
+| procps | current | `sysctl` used by IPv6 and hardening checks |
 
 Host OS for building: Debian/Ubuntu x86_64. Agents do not `apt install` in a
 session; missing host tools are a STOP (see `scripts/install.sh`).
@@ -44,14 +46,22 @@ process environment at runtime.
 | `OPENAI_API_KEY` | optional | runtime | `sk-...` | YES | Key for OpenAI-compatible fallback. | loaded from vault only |
 | `VENICE_API_KEY` | optional | runtime | `vapi_...` | YES | Key for Venice fallback. | loaded from vault only |
 | `ADAD_MODEL` | optional | runtime | `qwen2.5-coder` (local) | no | Model id for the active provider. | non-empty |
-| `ADAD_DMS_WINDOW_HOURS` | optional | runtime | `72` | no | Dead Man's Switch window. | positive integer |
-| `ADAD_WG_CONF` | optional | runtime | `/run/adad/wg0.conf` | YES | WireGuard config (contains private key). | vault-loaded; never committed |
+| `ADAD_PSEUDONYM` | required for git-spoof | runtime | `stable-persona` | no | Stable session pseudonym supplied by the unlocked persona/vault runtime. | non-empty |
+| `ADAD_GIT_AUTHOR_NAME` | required for git-spoof | runtime | `ADAD Persona` | no | Pseudonymous Git author name supplied by the unlocked persona/vault runtime. | non-empty |
+| `ADAD_GIT_AUTHOR_EMAIL` | required for git-spoof | runtime | `persona@example.invalid` | no | Pseudonymous Git author email supplied by the unlocked persona/vault runtime. | contains `@` and no whitespace |
+| `ADAD_DMS_WINDOW_HOURS` | optional | runtime | `72` | no | Dead Man's Switch window; expiry handling is image-backed in the current source, while authoritative Tor-NTP acquisition remains release-gated. | positive integer |
+| `ADAD_WG_CONF` | optional | runtime | `/run/adad/wg0.conf` | YES | Absolute path to the vault-materialized WireGuard config (contains private key; required for `leakguard wireguard up`). | exactly `/run/adad/wg0.conf`; regular root-owned mode-0600 file; never committed |
 | `MONERO_RPC_URL` | optional | runtime | `http://127.0.0.1:18082/json_rpc` | no | monero-wallet-rpc endpoint (over Tor). | via Tor only |
 | `ADAD_PERF_GGUF` | optional | local/test | `fixtures/tiny.gguf` | no | Repo-visible tiny GGUF used by `scripts/min-system-sim.sh` for optional local inference timing. | file must exist |
 | `ADAD_PERF_HF_MODEL` | optional | local/test | `Qwen/Qwen2.5-Coder-32B-Instruct-GGUF:Q3_K_M` | no | Hugging Face model ref fetched by repo-local `llama.cpp` during minimum-system simulation. | non-empty Hugging Face ref |
 | `ADAD_LLAMA_SERVER_BIN` | optional | local/test | `llama-server` | no | `llama-server` binary name/path visible inside the simulation environment. | executable must exist if inference timing is enabled |
-| `ADAD_LLAMA_CPP_RELEASE_TAG` | optional | local/test | `b9892` | no | `llama.cpp` GitHub release tag used by the repo-local runtime fetcher. | non-empty release tag |
+| `ADAD_LLAMA_CPP_RELEASE_TAG` | optional | local/test | `b9892` | no | `llama.cpp` GitHub release tag used by the repo-local runtime fetcher. | simple non-empty tag name using letters, digits, `.`, `_`, or `-`; no `..` or path separators |
+| `ADAD_LLAMA_CPP_ARCHIVE_SHA256` | required when fetching | local/test | `<64 hex characters>` | no | Expected SHA-256 for the selected `llama.cpp` release archive. | exactly 64 hexadecimal characters; fetch fails closed without it |
+| `ADAD_LLAMA_RUNTIME_DIR` | optional | image-build | `build/tools/llama.cpp/b9892` | no | Repo-relative reviewed llama.cpp runtime directory staged into a release image. | executable `llama-server` must be present |
+| `ADAD_LLAMA_MODEL_SOURCE` | required for image release | image-build | `build/models/default.gguf` | no | Repo-relative GGUF model artifact copied to the image and served on loopback. | existing regular file; paths containing `..` are refused |
 | `ADAD_LLAMA_READY_TIMEOUT` | optional | local/test | `300` | no | Seconds to wait for `llama-server` to answer before recording a simulator skip reason. | positive integer |
+| `ADAD_REQUIRE_INFERENCE` | optional | local/test/CI | `0` | no | When `1`, minimum-system inference timing is required and missing or unusable model/server inputs fail the simulation. | exactly `0` or `1` |
+| `ADAD_REQUIRE_VAULT` | optional | CI/test | `1` | no | Turns unavailable Linux loopback-vault prerequisites into a test failure instead of a source-only skip. | exactly `1` to require the integration |
 
 > This table needs per-crate confirmation as crates are implemented. Each
 > ExecPlan that reads a variable must confirm the name here first.
@@ -69,7 +79,17 @@ shutdown. Never written to host disk, never logged, never committed.
 Containerized image-builder setup for EP-009:
 1. `scripts/build-image-builder.sh`
 2. `scripts/check-image-builder.sh`
-3. `scripts/build-image.sh` to produce `build/adad.img`
+3. `scripts/build-image.sh` to produce `build/adad.img`; both the builder and
+   target image resolve Debian packages through the pinned
+   `20260801T000000Z` snapshot, which is recorded in image provenance.
+
+Hosted release-image CI is intentionally manual because the reviewed GGUF
+model is not committed to the repository. Start the workflow with
+`workflow_dispatch` and provide an HTTPS model URL plus its 64-hex SHA-256,
+the selected `llama.cpp` release tag, and that release archive's 64-hex
+SHA-256. CI downloads and verifies both external inputs before the existing
+image builder can consume them; an ordinary push or pull request cannot claim
+image readiness without this explicit input path.
 
 ## Local database setup
 Not applicable (no database).
@@ -90,6 +110,10 @@ Minimum-system simulation:
    `ADAD_PERF_HF_MODEL` to a supported Hugging Face model ref, to record local
    inference latency/tok-s data in the same run.
 4. Large-model startup logs land under `build/min-system-sim-tmp/`.
+
+When inference is part of the acceptance gate, set `ADAD_REQUIRE_INFERENCE=1`;
+the simulation then fails closed instead of treating missing model/runtime or an
+unready server as a successful timing run.
 
 ## Staging environment setup
 "Staging" = a QEMU VM booting the built image with a monitored NIC/disk. No

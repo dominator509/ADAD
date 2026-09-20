@@ -7,3 +7,6 @@ publish.workspace = true
 
 [dependencies]
 adad-core = { path = "../adad-core" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.186"

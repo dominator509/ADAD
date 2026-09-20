@@ -1,12 +1,20 @@
+use std::{io, time::Duration};
+
 use adad_core::Error;
+use crossterm::{
+    event::{self, Event, KeyCode, KeyEventKind},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use ratatui::{
+    backend::CrosstermBackend,
     backend::TestBackend,
     text::{Line, Text},
     widgets::{Block, Paragraph},
     Frame, Terminal,
 };
 
-use crate::{DaemonHealth, HealthReport, DEFAULT_LOCAL_MODEL};
+use crate::{check_all, DaemonHealth, HealthReport, SystemDaemonProbe, DEFAULT_LOCAL_MODEL};
 
 use super::{escape_terminal_text, Theme, ThemeKind};
 
@@ -120,6 +128,65 @@ pub struct StatusFrameLog {
     pub theme: ThemeKind,
     pub frames: Vec<String>,
     pub last_status: StatusSnapshot,
+}
+
+/// Run the status monitor against live host observations until Escape or `q`.
+///
+/// Each refresh queries the supplied system probe and renders `Unknown` when a
+/// service or observation cannot be established. This is the production
+/// terminal boundary; the headless driver below remains exclusively for tests.
+pub fn run_status_monitor() -> Result<(), Error> {
+    run_status_monitor_with_provider("local", DEFAULT_LOCAL_MODEL)
+}
+
+/// Run the status monitor with the provider metadata selected by the runtime
+/// configuration. The legacy wrapper retains the local-default API.
+pub fn run_status_monitor_with_provider(
+    provider: impl Into<String>,
+    model: impl Into<String>,
+) -> Result<(), Error> {
+    enable_raw_mode().map_err(|_| Error::Io)?;
+    let _cleanup = StatusTerminalCleanup;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen).map_err(|_| Error::Io)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).map_err(|_| Error::Io)?;
+    let provider = provider.into();
+    let model = model.into();
+    let mut probe = SystemDaemonProbe::new();
+    let mut state = StatusState::default();
+
+    loop {
+        let report = check_all(&mut probe);
+        state.status = StatusSnapshot::from_health_report(report, &provider, &model);
+        terminal
+            .draw(|frame| render_status(frame, &state))
+            .map_err(|_| Error::Io)?;
+
+        if event::poll(Duration::from_millis(250)).map_err(|_| Error::Io)? {
+            let Event::Key(key) = event::read().map_err(|_| Error::Io)? else {
+                continue;
+            };
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            if matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+struct StatusTerminalCleanup;
+
+impl Drop for StatusTerminalCleanup {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let mut stdout = io::stdout();
+        let _ = execute!(stdout, LeaveAlternateScreen);
+    }
 }
 
 pub fn run_status_headless(events: &[StatusEvent]) -> Result<StatusFrameLog, Error> {

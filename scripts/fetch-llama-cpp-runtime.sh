@@ -5,10 +5,30 @@ cd "$(dirname "$0")/.."
 
 tag="${ADAD_LLAMA_CPP_RELEASE_TAG:-b9892}"
 asset_include="${ADAD_LLAMA_CPP_ASSET_INCLUDE:-ubuntu}"
+archive_sha256="${ADAD_LLAMA_CPP_ARCHIVE_SHA256:-}"
 tools_root="build/tools/llama.cpp"
 install_dir="$tools_root/$tag"
 archive="$tools_root/llama-${tag}.archive"
 api_url="https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/$tag"
+
+# The tag is used as a repository-relative directory name and as part of a
+# path passed to rm below. Keep it to the character set used by llama.cpp
+# release tags so an operator-supplied value cannot escape tools_root.
+case "$tag" in
+  ""|*..*|*[!A-Za-z0-9._-]*)
+    echo "ERROR: ADAD_LLAMA_CPP_RELEASE_TAG must be a simple release-tag name." >&2
+    exit 1
+    ;;
+esac
+
+if [ -z "$archive_sha256" ]; then
+  echo "ERROR: ADAD_LLAMA_CPP_ARCHIVE_SHA256 is required before downloading a llama.cpp runtime." >&2
+  exit 1
+fi
+if ! printf '%s\n' "$archive_sha256" | grep -Eq '^[[:xdigit:]]{64}$'; then
+  echo "ERROR: ADAD_LLAMA_CPP_ARCHIVE_SHA256 must be exactly 64 hexadecimal characters." >&2
+  exit 1
+fi
 
 mkdir -p "$tools_root"
 find_bin="find"
@@ -21,6 +41,10 @@ real_server_path="$(
     | grep -v "^$install_dir/llama-server$" \
     | head -n 1
 )"
+cached_archive_sha256=""
+if [ -f "$archive" ]; then
+  cached_archive_sha256="$(sha256sum "$archive" | awk '{print $1}')"
+fi
 
 write_wrapper() {
   server_path="$1"
@@ -37,13 +61,15 @@ EOF
   chmod +x "$install_dir/llama-server"
 }
 
-if [ -n "$real_server_path" ] && [ -f "$(dirname "$real_server_path")/libllama-server-impl.so" ]; then
+if [ "$cached_archive_sha256" = "$archive_sha256" ] \
+  && [ -n "$real_server_path" ] \
+  && [ -f "$(dirname "$real_server_path")/libllama-server-impl.so" ]; then
   write_wrapper "$real_server_path"
   echo "llama runtime: ok"
   exit 0
 fi
 
-json="$(curl -fsSL "$api_url")"
+json="$(curl -fsSL --proto '=https' --proto-redir '=https' --tlsv1.2 "$api_url")"
 download_url="$(
   printf '%s\n' "$json" \
     | sed -n 's/.*"browser_download_url":[[:space:]]*"\([^"]*\)".*/\1/p' \
@@ -58,9 +84,23 @@ download_url="$(
   exit 1
 }
 
+case "$download_url" in
+  https://*) ;;
+  *)
+    echo "ERROR: llama.cpp release asset URL must use HTTPS." >&2
+    exit 1
+    ;;
+esac
+
 rm -rf "$install_dir"
 mkdir -p "$install_dir"
-curl -fL "$download_url" -o "$archive"
+curl -fL --proto '=https' --proto-redir '=https' --tlsv1.2 "$download_url" -o "$archive"
+actual_sha256="$(sha256sum "$archive" | awk '{print $1}')"
+if [ "$actual_sha256" != "$archive_sha256" ]; then
+  echo "ERROR: llama.cpp archive checksum mismatch (expected $archive_sha256, got $actual_sha256)." >&2
+  rm -f "$archive"
+  exit 1
+fi
 if unzip -tqq "$archive" >/dev/null 2>&1; then
   unzip -oq "$archive" -d "$install_dir"
 else

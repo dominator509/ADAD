@@ -9,6 +9,9 @@ use loop_image::LoopImageHarness;
 #[test]
 fn vault_upgrade_makes_a_backup_and_preserves_data() {
     if let Some(reason) = runtime_skip_reason() {
+        if std::env::var("ADAD_REQUIRE_VAULT").as_deref() == Ok("1") {
+            panic!("vault integration is required but unavailable: {reason}");
+        }
         eprintln!("vault_upgrade skipped: {reason}");
         return;
     }
@@ -44,15 +47,5 @@ fn vault_upgrade_makes_a_backup_and_preserves_data() {
 }
 
 fn runtime_skip_reason() -> Option<String> {
-    if !cfg!(target_os = "linux") {
-        return Some("host OS is not Linux".to_string());
-    }
-
-    let harness = LoopImageHarness::new();
-    let missing = harness.missing_tools();
-    if missing.is_empty() {
-        None
-    } else {
-        Some(format!("missing host tools: {}", missing.join(", ")))
-    }
+    LoopImageHarness::new().runtime_skip_reason()
 }

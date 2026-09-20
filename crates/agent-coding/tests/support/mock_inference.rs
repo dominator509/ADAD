@@ -37,12 +37,31 @@ pub struct MockInferenceServer {
     handle: Option<JoinHandle<()>>,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[allow(dead_code)]
+enum ResponseMode {
+    Text,
+    ToolCall,
+    ToolThenText,
+}
+
 impl MockInferenceServer {
     pub fn start() -> Self {
+        Self::start_with_mode(ResponseMode::Text)
+    }
+
+    #[allow(dead_code)]
+    pub fn start_with_tool_call() -> Self {
+        Self::start_with_mode(ResponseMode::ToolCall)
+    }
+
+    #[allow(dead_code)]
+    pub fn start_with_tool_then_text() -> Self {
+        Self::start_with_mode(ResponseMode::ToolThenText)
+    }
+
+    fn start_with_mode(response_mode: ResponseMode) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock inference server");
-        listener
-            .set_nonblocking(true)
-            .expect("mock listener is nonblocking");
         let addr = listener.local_addr().expect("mock listener address");
         let requests = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
@@ -51,21 +70,22 @@ impl MockInferenceServer {
         let thread_stop = Arc::clone(&stop);
         let handle = thread::spawn(move || {
             while !thread_stop.load(Ordering::SeqCst) {
-                match listener.accept() {
-                    Ok((mut stream, _)) => {
-                        if let Some(request) = read_request(&mut stream) {
-                            let streaming = request.body["stream"].as_bool().unwrap_or(false);
-                            thread_requests
-                                .lock()
-                                .expect("request log is available")
-                                .push(request);
-                            write_response(&mut stream, streaming);
-                        }
+                if let Ok((mut stream, _)) = listener.accept() {
+                    if let Some(request) = read_request(&mut stream) {
+                        let streaming = request.body["stream"].as_bool().unwrap_or(false);
+                        let has_tool_result = request_has_tool_result(&request.body);
+                        thread_requests
+                            .lock()
+                            .expect("request log is available")
+                            .push(request);
+                        let effective_mode =
+                            if response_mode == ResponseMode::ToolThenText && has_tool_result {
+                                ResponseMode::Text
+                            } else {
+                                response_mode
+                            };
+                        write_response(&mut stream, streaming, effective_mode);
                     }
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(5));
-                    }
-                    Err(_) => break,
                 }
             }
         });
@@ -170,14 +190,22 @@ fn parse_request(buffer: &[u8], header_end: usize) -> Option<RecordedRequest> {
     })
 }
 
-fn write_response(stream: &mut TcpStream, streaming: bool) {
-    let body = if streaming {
-        "data: {\"choices\":[{\"delta\":{\"content\":\"mock \"}}]}\n\
-         data: {\"choices\":[{\"delta\":{\"content\":\"stream\"}}]}\n\
-         data: [DONE]\n"
-            .to_owned()
-    } else {
-        r#"{"id":"mock","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"mock completion"},"finish_reason":"stop"}]}"#.to_owned()
+fn write_response(stream: &mut TcpStream, streaming: bool, response_mode: ResponseMode) {
+    let body = match (response_mode, streaming) {
+        (ResponseMode::Text, true) => {
+            "data: {\"choices\":[{\"delta\":{\"content\":\"mock \"}}]}\n\
+             data: {\"choices\":[{\"delta\":{\"content\":\"stream\"}}]}\n\
+             data: [DONE]\n"
+                .to_owned()
+        }
+        (ResponseMode::Text, false) => r#"{"id":"mock","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"mock completion"},"finish_reason":"stop"}]}"#.to_owned(),
+        (ResponseMode::ToolCall | ResponseMode::ToolThenText, false) => r#"{"id":"mock-tool-call","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"echo","arguments":"{\"input\":\"payload\"}"}}]},"finish_reason":"tool_calls"}]}"#.to_owned(),
+        (ResponseMode::ToolCall | ResponseMode::ToolThenText, true) => {
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"echo","arguments":"{\"input\":\"payload\"}"}}]}}]}
+data: [DONE]
+"#
+                .to_owned()
+        }
     };
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -187,4 +215,10 @@ fn write_response(stream: &mut TcpStream, streaming: bool) {
     stream
         .write_all(response.as_bytes())
         .expect("write mock response");
+}
+
+fn request_has_tool_result(body: &Value) -> bool {
+    body["messages"]
+        .as_array()
+        .is_some_and(|messages| messages.iter().any(|message| message["role"] == "tool"))
 }
