@@ -7,7 +7,7 @@ publish.workspace = true
 
 [dependencies]
 adad-core = { path = "../adad-core" }
-rmcp = { version = "2.1.0", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-client-reqwest"] }
+rmcp = { version = "3.4.0", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-client-reqwest"] }
 ratatui = { version = "0.30.0", default-features = false, features = ["std", "crossterm"] }
 crossterm = "0.29"
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
