@@ -4,9 +4,9 @@ use std::env::VarError;
 use adad_core::{Config, ConfigField, Error, Provider, SecretString};
 use agent_coding::{
     check_all, provider_select, run_agent_chat_with_provider, run_status_monitor_with_provider,
-    serve_stdio_echo_server, AgentLoop, ExecutionRegistry, OpenAiAgentModel, OpenAiCompatClient,
-    ProviderSelection, ProviderWarning, SystemDaemonProbe, WorkspaceToolExecutor,
-    DEFAULT_LOCAL_BASE_URL, DEFAULT_LOCAL_MODEL,
+    sanitize_cli_text, serve_stdio_echo_server, AgentLoop, ExecutionRegistry, OpenAiAgentModel,
+    OpenAiCompatClient, ProviderSelection, ProviderWarning, SystemDaemonProbe,
+    WorkspaceToolExecutor, DEFAULT_LOCAL_BASE_URL, DEFAULT_LOCAL_MODEL,
 };
 
 fn main() {
@@ -40,7 +40,9 @@ fn run() -> Result<(), Error> {
             let mut tools = WorkspaceToolExecutor::new(workspace)?;
             let result = AgentLoop::new(registry, 8).run(prompt, &mut model, &mut tools)?;
             let answer = result.final_answer.ok_or(Error::Provider)?;
-            print!("{answer}");
+            // Model output is untrusted: neutralize terminal control
+            // sequences before printing (SECURITY.md output-encoding rule).
+            print!("{}", sanitize_cli_text(&answer));
             Ok(())
         }
         "status" => {

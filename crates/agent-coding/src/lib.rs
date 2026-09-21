@@ -31,6 +31,6 @@ pub use provider_select::{
 pub use tui::{
     escape_terminal_text, run_agent_chat, run_agent_chat_headless, run_agent_chat_with_provider,
     run_headless, run_status_headless, run_status_monitor, run_status_monitor_with_provider,
-    AgentChatEvent, AgentChatFrameLog, ChatViewState, FrameLog, HeadlessEvent, StatusAlert,
-    StatusEvent, StatusFrameLog, StatusSnapshot, Theme, ThemeKind,
+    sanitize_cli_text, AgentChatEvent, AgentChatFrameLog, ChatViewState, FrameLog, HeadlessEvent,
+    StatusAlert, StatusEvent, StatusFrameLog, StatusSnapshot, Theme, ThemeKind,
 };
