@@ -71,7 +71,7 @@ git -C "$git_smoke_dir" show -s --format='%an%n%ae%n%aI%n%cn%n%ce%n%cI' |
 git -C "$git_smoke_dir" show -s --format='%an%n%ae%n%aI%n%cn%n%ce%n%cI' |
   grep -Fx 'smoke@example.invalid' >/dev/null || { echo "smoke: git-spoof commit email failed" >&2; exit 1; }
 git -C "$git_smoke_dir" show -s --format='%aI%n%cI' |
-  grep -Fx '2000-01-01T00:00:00Z' >/dev/null || { echo "smoke: git-spoof commit timestamp failed" >&2; exit 1; }
+  grep -Ex '2000-01-01T00:00:00(Z|\+00:00)' >/dev/null || { echo "smoke: git-spoof commit timestamp failed" >&2; exit 1; }
 
 dms_smoke_image="$git_smoke_dir/dms.img"
 printf 'LUKS\272\276\000\002' > "$dms_smoke_image"
