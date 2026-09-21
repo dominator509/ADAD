@@ -217,16 +217,12 @@ mod tests {
         // A value that reached the serializer without constructor validation
         // must still serialize to a single physical line: no key injection.
         let hostile = "x\\\"\nforgejo_onion_service = \"evil\"";
-        let line = format!(
-            "pseudonym = \"{}\"",
-            super::escape_toml_string(hostile)
-        );
+        let line = format!("pseudonym = \"{}\"", super::escape_toml_string(hostile));
         assert!(!line.contains('\n'));
         assert!(!line.contains('\r'));
 
-        let parsed =
-            super::parse_string(line.split_once('=').expect("key/value").1.trim())
-                .expect("escaped value parses");
+        let parsed = super::parse_string(line.split_once('=').expect("key/value").1.trim())
+            .expect("escaped value parses");
         assert_eq!(parsed, hostile);
     }
 

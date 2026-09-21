@@ -66,7 +66,8 @@ impl SessionIdentity {
     }
 }
 
-impl fmt::Debug for SessionIdentity {    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Debug for SessionIdentity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SessionIdentity")
             .field("pseudonym", &"[REDACTED]")
             .field("git_author_name", &"[REDACTED]")
@@ -99,24 +100,16 @@ mod tests {
             Err(Error::Identity)
         );
         assert_eq!(
-            SessionIdentity::new(
-                "ok",
-                "Name",
-                "a@b.invalid",
-                Some("bad\x1bonion".to_owned())
-            ),
+            SessionIdentity::new("ok", "Name", "a@b.invalid", Some("bad\x1bonion".to_owned())),
             Err(Error::Identity)
         );
     }
 
     #[test]
     fn clean_identity_still_constructs() {
-        assert!(SessionIdentity::new(
-            "aurora",
-            "Aurora Maintainer",
-            "aurora@adad.invalid",
-            None
-        )
-        .is_ok());
+        assert!(
+            SessionIdentity::new("aurora", "Aurora Maintainer", "aurora@adad.invalid", None)
+                .is_ok()
+        );
     }
 }
