@@ -23,7 +23,16 @@ fn commit_writes_stable_identity_and_fixed_utc_metadata_to_git() {
         &root,
         &["show", "-s", "--format=%an%n%ae%n%aI%n%cn%n%ce%n%cI"],
     );
-    let fields = metadata.lines().collect::<Vec<_>>();
+    // Git renders a zero UTC offset as "+00:00" on newer versions and "Z" on
+    // older ones; canonicalize so the assertion holds on both while still
+    // requiring the fixed midnight-UTC timestamp.
+    let fields: Vec<String> = metadata
+        .lines()
+        .map(|line| match line.strip_suffix("+00:00") {
+            Some(rest) => format!("{rest}Z"),
+            None => line.to_string(),
+        })
+        .collect();
     assert_eq!(
         fields,
         [
@@ -34,6 +43,7 @@ fn commit_writes_stable_identity_and_fixed_utc_metadata_to_git() {
             "stable@example.invalid",
             FIXED_UTC_TIMESTAMP,
         ]
+        .map(str::to_string),
     );
 
     fs::remove_dir_all(&root).expect("remove test repository");

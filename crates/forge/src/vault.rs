@@ -645,10 +645,8 @@ mod tests {
 
         use super::mount_dir_is_plain_dir;
 
-        let root = std::env::temp_dir().join(format!(
-            "adad-forge-guard-{}",
-            super::unique_suffix()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("adad-forge-guard-{}", super::unique_suffix()));
         fs::create_dir(&root).expect("fixture root creates");
         let target = root.join("real");
         fs::create_dir(&target).expect("target creates");
