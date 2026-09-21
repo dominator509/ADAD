@@ -219,8 +219,40 @@ impl Unsealed {
             return Err(Error::Io);
         }
 
-        Ok(self.mount_dir.join(relative_path))
+        let candidate = self.mount_dir.join(relative_path);
+        // A crafted vault image can plant symlinks inside the mount. Resolve
+        // them and require the result to stay inside the vault so reads and
+        // writes cannot escape to the host filesystem.
+        let resolved = canonicalize_existing_prefix(&candidate)?;
+        if !resolved.starts_with(&self.mount_dir) {
+            return Err(Error::Io);
+        }
+        Ok(candidate)
     }
+}
+
+/// Canonicalize the nearest existing ancestor of `path` and re-append the
+/// missing tail, so symlink components are resolved even when the final
+/// path does not exist yet (e.g. a file about to be written).
+fn canonicalize_existing_prefix(path: &Path) -> Result<PathBuf, Error> {
+    let mut existing = path;
+    let mut tail = Vec::new();
+    loop {
+        match fs::symlink_metadata(existing) {
+            Ok(_) => break,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let file_name = existing.file_name().ok_or(Error::Io)?;
+                tail.push(file_name.to_os_string());
+                existing = existing.parent().ok_or(Error::Io)?;
+            }
+            Err(_) => return Err(Error::Io),
+        }
+    }
+    let mut resolved = fs::canonicalize(existing).map_err(|_| Error::Io)?;
+    for component in tail.iter().rev() {
+        resolved.push(component);
+    }
+    Ok(resolved)
 }
 
 impl Drop for Unsealed {
@@ -658,6 +690,63 @@ mod tests {
         assert!(!mount_dir_is_plain_dir(&root.join("missing")));
 
         fs::remove_dir_all(&root).expect("fixture cleanup");
+    }
+
+    #[test]
+    fn relative_paths_cannot_escape_through_vault_symlinks() {
+        use std::os::unix::fs::symlink;
+        use std::path::PathBuf;
+
+        use super::{canonicalize_existing_prefix, Unsealed, VaultRuntime};
+
+        let root =
+            std::env::temp_dir().join(format!("adad-forge-contain-{}", super::unique_suffix()));
+        fs::create_dir(&root).expect("fixture root creates");
+        let sibling =
+            std::env::temp_dir().join(format!("adad-forge-sibling-{}", super::unique_suffix()));
+        fs::create_dir(&sibling).expect("sibling dir creates");
+        let secret = sibling.join("secret.txt");
+        fs::write(&secret, b"secret").expect("secret file writes");
+
+        // Symlink at an intermediate component that resolves back inside the
+        // vault stays usable.
+        let inner_link = root.join("innerlink");
+        symlink(&root, &inner_link).expect("inner symlink creates");
+        // Symlink escaping the vault root must be rejected.
+        let evil_dir = root.join("evildir");
+        symlink(&sibling, &evil_dir).expect("evil dir symlink creates");
+        let evil_file = root.join("evilfile");
+        symlink(&secret, &evil_file).expect("evil file symlink creates");
+
+        let vault = Unsealed {
+            image_path: root.join("vault.img"),
+            loop_device: PathBuf::from("/dev/loop0"),
+            mapper_name: "adad-test".to_owned(),
+            mount_dir: root.clone(),
+            runtime: VaultRuntime::new("test-passphrase"),
+            sealed: true,
+        };
+
+        assert!(vault
+            .resolve_relative_path(Path::new("innerlink/config.toml"))
+            .is_ok());
+        assert!(vault
+            .resolve_relative_path(Path::new("evildir/secret.txt"))
+            .is_err());
+        assert!(vault.resolve_relative_path(Path::new("evilfile")).is_err());
+        assert!(vault
+            .resolve_relative_path(Path::new("../secret.txt"))
+            .is_err());
+        assert!(vault
+            .resolve_relative_path(Path::new("missing-dir/new-file.txt"))
+            .is_ok());
+        // The canonicalizer resolves intermediate symlinks for missing tails.
+        let resolved = canonicalize_existing_prefix(&root.join("evildir").join("secret.txt"))
+            .expect("canonicalizes");
+        assert_eq!(resolved, secret);
+
+        fs::remove_dir_all(&root).expect("fixture cleanup");
+        fs::remove_dir_all(&sibling).expect("sibling cleanup");
     }
 
     #[test]
