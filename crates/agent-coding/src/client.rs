@@ -383,21 +383,7 @@ impl OpenAiCompatClient {
                     on_delta(&delta);
                     content.push_str(&delta);
                 }
-                for tool_call in choice.delta.tool_calls {
-                    if tool_call.index >= tool_calls.len() {
-                        tool_calls.resize_with(tool_call.index + 1, ToolCallAccumulator::default);
-                    }
-                    let accumulator = tool_calls.get_mut(tool_call.index).ok_or(Error::Provider)?;
-                    if let Some(id) = tool_call.id {
-                        accumulator.id.push_str(&id);
-                    }
-                    if let Some(name) = tool_call.function.name {
-                        accumulator.name.push_str(&name);
-                    }
-                    if let Some(arguments) = tool_call.function.arguments {
-                        accumulator.arguments.push_str(&arguments);
-                    }
-                }
+                accumulate_tool_call_deltas(&mut tool_calls, choice.delta.tool_calls)?;
             }
         }
         Ok(Completion {
@@ -543,6 +529,36 @@ struct ToolCallAccumulator {
     arguments: String,
 }
 
+/// Upper bound on streamed tool-call indexes. A compromised or hostile
+/// inference server must not be able to force an unbounded allocation via a
+/// crafted `index` in a function-call delta.
+const MAX_STREAM_TOOL_CALL_INDEX: usize = 32;
+
+fn accumulate_tool_call_deltas(
+    tool_calls: &mut Vec<ToolCallAccumulator>,
+    deltas: Vec<ChatToolCallDelta>,
+) -> Result<(), Error> {
+    for tool_call in deltas {
+        if tool_call.index >= MAX_STREAM_TOOL_CALL_INDEX {
+            return Err(Error::Provider);
+        }
+        if tool_call.index >= tool_calls.len() {
+            tool_calls.resize_with(tool_call.index + 1, ToolCallAccumulator::default);
+        }
+        let accumulator = tool_calls.get_mut(tool_call.index).ok_or(Error::Provider)?;
+        if let Some(id) = tool_call.id {
+            accumulator.id.push_str(&id);
+        }
+        if let Some(name) = tool_call.function.name {
+            accumulator.name.push_str(&name);
+        }
+        if let Some(arguments) = tool_call.function.arguments {
+            accumulator.arguments.push_str(&arguments);
+        }
+    }
+    Ok(())
+}
+
 fn parse_stream_completion(body: &str) -> Result<Completion, Error> {
     parse_stream_completion_with_callback(body, |_| {})
 }
@@ -656,5 +672,57 @@ mod tests {
     #[test]
     fn chat_message_user_sets_role() {
         assert_eq!(ChatMessage::user("hello").role, "user");
+    }
+
+    #[test]
+    fn stream_tool_call_deltas_accumulate_in_index_order() {
+        use super::{accumulate_tool_call_deltas, ChatFunctionCallDelta, ChatToolCallDelta};
+
+        let mut tool_calls = Vec::new();
+        accumulate_tool_call_deltas(
+            &mut tool_calls,
+            vec![
+                ChatToolCallDelta {
+                    index: 0,
+                    id: Some("call-1".to_owned()),
+                    function: ChatFunctionCallDelta {
+                        name: Some("read_file".to_owned()),
+                        arguments: Some("{\"input\":\"".to_owned()),
+                    },
+                },
+                ChatToolCallDelta {
+                    index: 0,
+                    id: None,
+                    function: ChatFunctionCallDelta {
+                        name: None,
+                        arguments: Some("README.md\"}".to_owned()),
+                    },
+                },
+            ],
+        )
+        .expect("bounded indexes accumulate");
+
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].id, "call-1");
+        assert_eq!(tool_calls[0].name, "read_file");
+        assert_eq!(tool_calls[0].arguments, "{\"input\":\"README.md\"}");
+    }
+
+    #[test]
+    fn oversized_stream_tool_call_index_is_rejected_without_allocating() {
+        use super::{accumulate_tool_call_deltas, ChatFunctionCallDelta, ChatToolCallDelta};
+
+        let mut tool_calls = Vec::new();
+        let result = accumulate_tool_call_deltas(
+            &mut tool_calls,
+            vec![ChatToolCallDelta {
+                index: 1_000_000_000,
+                id: Some("call-x".to_owned()),
+                function: ChatFunctionCallDelta::default(),
+            }],
+        );
+
+        assert_eq!(result, Err(super::Error::Provider));
+        assert!(tool_calls.is_empty());
     }
 }
