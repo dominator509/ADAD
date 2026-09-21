@@ -32,6 +32,10 @@ tests — mocks only. No inference HTTP calls outside `OpenAiCompatClient`.
   the tunnel is not the active egress — coordinated with leakguard in EP-006).
 - Venice MUST default to private model IDs; anonymized models MUST require
   `ADAD_VENICE_ALLOW_ANONYMIZED=true` and MUST emit a warning.
+- The production agent MUST query `/usr/local/bin/leakguard egress status` for
+  every non-local request and MUST send only after receiving the exact
+  machine-readable `egress=ready` result. Missing, malformed, or non-ready
+  output MUST remain blocked.
 
 ### Agent loop
 - The ADAD control loop MUST use ADAD-owned execution policy for workspace tools

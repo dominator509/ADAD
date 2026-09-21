@@ -10,7 +10,12 @@
 3. **E2E / leak battery** (few, authoritative) — against a booted image in QEMU:
    no clearnet, no DNS leak, no IPv6, no mDNS/SSDP/NetBIOS, killswitch fires on
    interface drop, zero host-disk writes across a boot cycle.
-4. **Smoke** — binaries answer `--version`/health without a full boot.
+   The boot smoke also requires the hardening markers and `adad-tools: reachable`,
+   which is emitted only after every shipped binary executes its `--help` path;
+   this proves executable reachability, not the full interactive workflow. It
+   also rejects unexpected QEMU exits; status `124` is accepted because the
+   harness timeout is the normal termination mode for a running live image.
+4. **Smoke** — on Linux, built musl binaries execute `--help` and safe local-only commands without a full boot. Non-Linux hosts report an explicit Linux-musl execution skip; native `cargo run ... -- --help` checks are separate and do not prove Linux execution.
 
 ## Unit test rules
 - Live beside the code (`#[cfg(test)]` or the crate `src`), run by
@@ -41,8 +46,7 @@
   requires the opt-in flag.
 
 ## Smoke test rules
-- `scripts/smoke-test.sh` runs each built tool's `--version`. Tools not built in
-  the current phase are skipped, not failed.
+- `scripts/smoke-test.sh` executes each built tool with `--help` and safe local-only dispatch checks on Linux. Non-Linux hosts report an explicit Linux-musl execution skip; missing binaries or failed commands fail the smoke gate.
 
 ## Regression test rules
 - Every fixed bug gets a test that reproduces it. Named `regression_<issue>`.

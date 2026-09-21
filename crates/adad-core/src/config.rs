@@ -1,5 +1,7 @@
 use core::fmt;
 
+use zeroize::Zeroize;
+
 use crate::{ConfigField, Error, Provider};
 
 /// Redacted secret wrapper for config values loaded from the vault.
@@ -15,6 +17,29 @@ impl SecretString {
     #[must_use]
     pub fn expose(&self) -> &str {
         &self.0
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl From<String> for SecretString {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for SecretString {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl Drop for SecretString {
+    fn drop(&mut self) {
+        self.0.zeroize();
     }
 }
 

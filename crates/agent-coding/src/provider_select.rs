@@ -1,4 +1,4 @@
-use adad_core::{Config, ConfigField, Error, Provider};
+use adad_core::{Config, ConfigField, Error, Provider, SecretString};
 
 pub const DEFAULT_LOCAL_BASE_URL: &str = "http://127.0.0.1:8080/v1";
 pub const DEFAULT_LOCAL_MODEL: &str = "qwen2.5-coder";
@@ -8,7 +8,7 @@ pub const DEFAULT_VENICE_BASE_URL: &str = "https://api.venice.ai/api/v1";
 pub struct ProviderSelection {
     pub provider: Provider,
     pub base_url: String,
-    pub api_key: String,
+    pub api_key: SecretString,
     pub model: String,
     pub warnings: Vec<ProviderWarning>,
 }
@@ -26,7 +26,7 @@ pub fn provider_select(config: &Config) -> Result<ProviderSelection, Error> {
                 .local_base_url
                 .clone()
                 .unwrap_or_else(|| DEFAULT_LOCAL_BASE_URL.to_owned()),
-            api_key: String::new(),
+            api_key: SecretString::new(""),
             model: config
                 .model
                 .clone()
@@ -41,8 +41,8 @@ pub fn provider_select(config: &Config) -> Result<ProviderSelection, Error> {
             api_key: config
                 .openai_api_key
                 .as_ref()
-                .map(|secret| secret.expose().to_owned())
-                .unwrap_or_default(),
+                .cloned()
+                .unwrap_or_else(|| SecretString::new("")),
             model: config.model.clone().ok_or(Error::Config {
                 field: ConfigField::Model,
             })?,
@@ -68,8 +68,8 @@ pub fn provider_select(config: &Config) -> Result<ProviderSelection, Error> {
                 api_key: config
                     .venice_api_key
                     .as_ref()
-                    .map(|secret| secret.expose().to_owned())
-                    .unwrap_or_default(),
+                    .cloned()
+                    .unwrap_or_else(|| SecretString::new("")),
                 model,
                 warnings: if anonymized {
                     vec![ProviderWarning::VeniceAnonymizedModelEnabled]

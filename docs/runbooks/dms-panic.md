@@ -1,29 +1,35 @@
-# Runbook — DMS And Panic Wipe
+# Runbook — DMS And Panic Wipe (Image-Only Boundary)
 
-- **Applies to:** leakguard DMS, panic wipe, vault safety
-- **Trigger:** DMS near-expiry alert, panic action, or suspected unattended
-  seizure risk
+- **Applies to:** leakguard's image-only DMS adapter and vault safety
+- **Trigger:** disposable-image DMS validation or a future live DMS integration
+  risk
 - **Risk level:** high
 - **Reversible:** no for an executed header wipe
 
 ## Preconditions
-The operator understands that an expired DMS wipes the LUKS header by design.
+The current source has no production DMS scheduler, live panic button, or
+`kexec` backend. `leakguard dms evaluate-image` accepts only a regular,
+disposable LUKS2 image and caller-supplied authoritative Tor-NTP values.
 Automated sessions must use image targets only and must never trigger real
 device wipes.
 
 ## Procedure
-1. Confirm the status monitor alert.
-   - Expected: `Alert: DMS NEAR EXPIRY - access vault or prepare wipe`.
-2. If continued operation is intended, access the vault through the normal ADAD
-   workflow before the DMS window expires.
-   - Expected: DMS countdown refreshes from Tor-anchored time.
-3. If panic wipe is required, invoke the panic action from the live system.
-   - Expected: RAM is wiped and the session terminates immediately.
+1. Do not treat the status monitor's `DMS: unknown` value as an active timer;
+   the current status probe has no live DMS source.
+2. For disposable-image validation, run the documented
+   `leakguard dms evaluate-image` command with a regular LUKS2 image and
+   authoritative Tor-NTP timestamps.
+   - Expected: an unexpired image reports `dms=Armed`; an expired image reports
+     `dms=Expired header_wiped=true image_only=true`.
+3. If a live panic wipe or production-device DMS is required, STOP and require
+   a separately reviewed production backend. Do not substitute the image
+   command or claim that RAM/device destruction occurred.
 
 ## Verification
 For code changes, run `cargo test -p leakguard --test dms` and
-`scripts/verify.sh`. Expected: DMS expiry, clock-freeze resistance, and panic
-path tests pass.
+`scripts/verify.sh`. These tests prove the model and disposable-image adapter;
+they do not prove a live scheduler, production-device destruction, or panic
+`kexec` behavior.
 
 ## Rollback
 An executed DMS header wipe is not reversible. Restore only from a deliberate

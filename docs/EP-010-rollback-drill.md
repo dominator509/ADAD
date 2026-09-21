@@ -18,7 +18,9 @@ or remote system.
    - `adad-mac: randomized`
 
 ## Result
-Passed. The command returned `rollback drill: ok`.
+The repository records a historical run returning `rollback drill: ok`.
+That record is not current release evidence; rerun the command against the
+exact clean source/image pair under review before treating rollback as passed.
 
 ## Boundary
 Real image rollback remains human-run per `ROLLBACK.md`; automated sessions only

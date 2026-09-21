@@ -7,4 +7,5 @@ publish.workspace = true
 
 [dependencies]
 adad-core = { path = "../adad-core" }
-ratatui = { version = "0.30.0", default-features = false, features = ["std"] }
+crossterm = "0.29"
+ratatui = { version = "0.30.0", default-features = false, features = ["std", "crossterm"] }

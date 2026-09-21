@@ -42,6 +42,21 @@ fn run() -> Result<(), Error> {
             println!("{}", result.stdout);
             Ok(())
         }
+        "tui" => {
+            let host = args.next().ok_or(Error::VpsProvision)?;
+            let user = args.next().ok_or(Error::VpsProvision)?;
+            if args.next().as_deref() != Some("--script-stdin")
+                || args.next().as_deref() != Some("--confirm")
+                || args.next().is_some()
+            {
+                return Err(Error::VpsProvision);
+            }
+            let mut script = String::new();
+            std::io::stdin()
+                .read_to_string(&mut script)
+                .map_err(|_| Error::Io)?;
+            vps_deploy::run_tui(ProvisionTarget::new(host, user, 22), script)
+        }
         "tor-connect" => {
             let host = args.next().ok_or(Error::VpsProvision)?;
             let port = args
@@ -60,7 +75,7 @@ fn run() -> Result<(), Error> {
 
 fn print_help() {
     println!(
-        "vps-deploy {}\n\nUsage:\n  vps-deploy provision <host> <user> --script-stdin --confirm < setup.sh\n\nThe command uses OpenSSH with normal host-key verification, BatchMode=yes, and a fixed Tor SOCKS5 ProxyCommand. --confirm is mandatory and the setup script is read from stdin; no provisioning is attempted by --help or --version.",
+        "vps-deploy {}\n\nUsage:\n  vps-deploy provision <host> <user> --script-stdin --confirm < setup.sh\n  vps-deploy tui <host> <user> --script-stdin --confirm < setup.sh\n\nThe commands use OpenSSH with normal host-key verification, BatchMode=yes, and a fixed Tor SOCKS5 ProxyCommand. --confirm is mandatory; the tui command adds a visible `p` action before provisioning. The setup script is read from stdin; no provisioning is attempted by --help or --version.",
         adad_core::version()
     );
 }

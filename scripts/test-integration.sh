@@ -7,7 +7,7 @@ if [ ! -f Cargo.toml ]; then
   echo "ERROR: no Cargo.toml yet. EP-001 creates the workspace first." >&2
   exit 1
 fi
-cargo test --workspace --tests
+cargo test --locked --workspace --tests
 
 # Source-only verification may omit the expensive image run, but release CI
 # must opt into a hard failure rather than silently treating it as green.

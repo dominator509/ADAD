@@ -1,6 +1,12 @@
-use std::{fmt, io::BufRead, io::BufReader, sync::Arc, time::Duration};
+use std::{
+    fmt,
+    io::{BufRead, BufReader},
+    process::{Command, Stdio},
+    sync::Arc,
+    time::Duration,
+};
 
-use adad_core::{EgressSnapshot, Error};
+use adad_core::{EgressSnapshot, Error, SecretString};
 use serde::{Deserialize, Serialize};
 
 use crate::execution::ToolDescriptor;
@@ -168,10 +174,52 @@ impl EgressState for LeakguardEgressState {
     }
 }
 
+/// Production egress state backed by the fixed on-image leakguard command.
+///
+/// The agent never infers readiness from an environment variable or from the
+/// presence of a WireGuard config. It accepts only the exact machine-readable
+/// `egress=ready` response produced by leakguard's live posture query. Any
+/// missing command, non-zero exit, malformed output, or non-ready state blocks
+/// the request.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SystemEgressState;
+
+const LEAKGUARD_COMMAND: &str = "/usr/local/bin/leakguard";
+
+impl SystemEgressState {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+
+    fn query() -> bool {
+        let Ok(output) = Command::new(LEAKGUARD_COMMAND)
+            .args(["egress", "status"])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+        else {
+            return false;
+        };
+
+        output.status.success() && has_ready_marker(&output.stdout)
+    }
+}
+
+impl EgressState for SystemEgressState {
+    fn fallback_tunnel_active(&self) -> bool {
+        Self::query()
+    }
+}
+
+fn has_ready_marker(stdout: &[u8]) -> bool {
+    std::str::from_utf8(stdout).is_ok_and(|text| text.trim() == "egress=ready")
+}
+
 #[derive(Clone)]
 pub struct OpenAiCompatClient {
     base_url: String,
-    api_key: String,
+    api_key: SecretString,
     model: String,
     egress_mode: EgressMode,
     egress_state: Arc<dyn EgressState>,
@@ -192,7 +240,7 @@ impl OpenAiCompatClient {
     #[must_use]
     pub fn new(
         base_url: impl Into<String>,
-        api_key: impl Into<String>,
+        api_key: impl Into<SecretString>,
         model: impl Into<String>,
     ) -> Self {
         let base_url = base_url.into().trim_end_matches('/').to_owned();
@@ -331,7 +379,8 @@ impl OpenAiCompatClient {
             .post(&endpoint.url)
             .header("Content-Type", "application/json");
         if !self.api_key.is_empty() {
-            request = request.header("Authorization", &format!("Bearer {}", self.api_key));
+            let authorization = SecretString::new(format!("Bearer {}", self.api_key.expose()));
+            request = request.header("Authorization", authorization.expose());
         }
 
         let mut response = request.send(body).map_err(|_| Error::Provider)?;
@@ -356,7 +405,8 @@ impl OpenAiCompatClient {
             .post(&endpoint.url)
             .header("Content-Type", "application/json");
         if !self.api_key.is_empty() {
-            request = request.header("Authorization", &format!("Bearer {}", self.api_key));
+            let authorization = SecretString::new(format!("Bearer {}", self.api_key.expose()));
+            request = request.header("Authorization", authorization.expose());
         }
         let mut response = request.send(body).map_err(|_| Error::Provider)?;
         let mut reader = BufReader::new(response.body_mut().as_reader());
@@ -596,9 +646,18 @@ fn parse_stream_completion_with_callback(
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_completion, parse_stream_completion, parse_stream_completion_with_callback,
-        ChatMessage, CompletionToolCall, Endpoint,
+        has_ready_marker, parse_completion, parse_stream_completion,
+        parse_stream_completion_with_callback, ChatMessage, CompletionToolCall, Endpoint,
     };
+
+    #[test]
+    fn system_egress_accepts_only_an_exact_ready_marker() {
+        assert!(has_ready_marker(b"egress=ready\n"));
+        assert!(!has_ready_marker(b"status\negress=ready\n"));
+        assert!(!has_ready_marker(b"egress=blocked\n"));
+        assert!(!has_ready_marker(b"egress=ready-extra\n"));
+        assert!(!has_ready_marker(b"egress=ready\0\n"));
+    }
 
     #[test]
     fn endpoint_joins_v1_chat_path() {

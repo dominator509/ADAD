@@ -41,6 +41,7 @@ fn run() -> Result<(), Error> {
             Ok(())
         }
         "monitor" => leakguard::run_system_monitor(),
+        "egress" => run_egress(&mut args),
         "wireguard" => match args.next().as_deref() {
             Some("status") => {
                 println!("wireguard={:?}", WireGuardController::default().status());
@@ -61,6 +62,15 @@ fn run() -> Result<(), Error> {
         "dms" => run_dms(&mut args),
         _ => Err(Error::Killswitch),
     }
+}
+
+fn run_egress(args: &mut impl Iterator<Item = String>) -> Result<(), Error> {
+    if args.next().as_deref() != Some("status") || args.next().is_some() {
+        return Err(Error::Killswitch);
+    }
+
+    println!("egress={}", leakguard::system_status().label());
+    Ok(())
 }
 
 fn run_dms(args: &mut impl Iterator<Item = String>) -> Result<(), Error> {
@@ -106,7 +116,7 @@ fn parse_u64(value: Option<String>) -> Result<u64, Error> {
 
 fn print_help() {
     println!(
-          "leakguard {}\n\nUsage:\n  leakguard status\n  leakguard monitor\n  leakguard wireguard status\n  leakguard wireguard up\n  leakguard wireguard down\n  leakguard dms evaluate-image <image> <header-bytes> <last-tor-ntp-seconds> <now-tor-ntp-seconds> <window-seconds>\n\nmonitor observes Linux link events and loads a complete drop-only nftables killswitch ruleset on down/deleted links. It returns an error if the event source terminates so systemd can restart it. wireguard up/down require the vault runtime to provide ADAD_WG_CONF=/run/adad/wg0.conf; configuration contents are never printed. dms evaluate-image accepts authoritative Tor-NTP seconds from its caller and can only open a regular LUKS2 image file; it rejects block devices and symlinks and ignores local clock input.",
+          "leakguard {}\n\nUsage:\n  leakguard status\n  leakguard monitor\n  leakguard egress status\n  leakguard wireguard status\n  leakguard wireguard up\n  leakguard wireguard down\n  leakguard dms evaluate-image <image> <header-bytes> <last-tor-ntp-seconds> <now-tor-ntp-seconds> <window-seconds>\n\nmonitor observes Linux link events and loads a complete drop-only nftables killswitch ruleset on down/deleted links. It returns an error if the event source terminates so systemd can restart it. egress status prints ready only when the live WireGuard interface, killswitch, DNS/discovery blocks, and IPv6 sysctls are all observed. wireguard up/down require the vault runtime to provide ADAD_WG_CONF=/run/adad/wg0.conf; configuration contents are never printed. dms evaluate-image accepts authoritative Tor-NTP seconds from its caller and can only open a regular LUKS2 image file; it rejects block devices and symlinks and ignores local clock input.",
         adad_core::version()
     );
 }

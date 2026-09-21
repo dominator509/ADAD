@@ -1,4 +1,5 @@
 pub mod dms;
+pub mod egress;
 pub mod firewall;
 pub mod killswitch;
 pub mod mac;
@@ -10,6 +11,7 @@ pub use dms::{
     panic_wipe, panic_wipe_file, Dms, DmsOutcome, DmsState, LocalClockTime, LuksHeaderFile,
     LuksHeaderImage, PanicWipeReport, RamSecret, TorNtpTime,
 };
+pub use egress::{system_status, EgressStatus};
 pub use firewall::{EgressClass, FirewallAction, FirewallPosture};
 pub use killswitch::{InterfaceChange, Killswitch, KillswitchState, NetworkPosture, TunnelHealth};
 pub use mac::{randomize, MacAddress, MacAssignment, SessionSeed};

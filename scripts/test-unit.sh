@@ -8,5 +8,5 @@ if [ ! -f Cargo.toml ]; then
 fi
 # --lib restricts to unit tests living beside the code; integration tests run
 # separately in test-integration.sh.
-cargo test --workspace --lib
+cargo test --locked --workspace --lib
 echo "unit tests: ok"

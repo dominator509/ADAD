@@ -1,5 +1,13 @@
+use std::{io, time::Duration};
+
 use adad_core::Error;
+use crossterm::{
+    event::{self, Event, KeyCode, KeyEventKind},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use ratatui::{
+    backend::CrosstermBackend,
     backend::TestBackend,
     style::{Color, Modifier, Style},
     text::{Line, Text},
@@ -7,7 +15,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use crate::{Balance, WalletAddress};
+use crate::{Balance, WalletAddress, WalletRpcClient, WalletRpcTransport};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WalletEvent {
@@ -39,6 +47,61 @@ pub enum WalletAction {
     Address,
 }
 
+/// Run the wallet view against a real RPC client and terminal.
+///
+/// The headless event driver below remains test-only in spirit; this function
+/// owns the production crossterm event loop and executes only the two
+/// read/query actions exposed by the view.
+pub fn run_tui<T>(mut client: WalletRpcClient<T>) -> Result<(), Error>
+where
+    T: WalletRpcTransport,
+{
+    enable_raw_mode().map_err(|_| Error::Io)?;
+    let _cleanup = TerminalCleanup;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen).map_err(|_| Error::Io)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).map_err(|_| Error::Io)?;
+    let mut state = WalletState::default();
+
+    loop {
+        terminal
+            .draw(|frame| render_wallet(frame, &state))
+            .map_err(|_| Error::Io)?;
+
+        if !event::poll(Duration::from_millis(250)).map_err(|_| Error::Io)? {
+            continue;
+        }
+        let Event::Key(key) = event::read().map_err(|_| Error::Io)? else {
+            continue;
+        };
+        if key.kind != KeyEventKind::Press {
+            continue;
+        }
+
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => break,
+            KeyCode::Char('b') | KeyCode::Char('B') => {
+                state.handle_key('b');
+                match client.balance() {
+                    Ok(balance) => state.set_balance(&balance),
+                    Err(error) => state.set_error(&error),
+                }
+            }
+            KeyCode::Char('a') | KeyCode::Char('A') => {
+                state.handle_key('a');
+                match client.address() {
+                    Ok(address) => state.set_address(&address),
+                    Err(error) => state.set_error(&error),
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
 pub fn run_headless(events: &[WalletEvent]) -> Result<WalletFrameLog, Error> {
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).map_err(|_| Error::Io)?;
     let mut state = WalletState::default();
@@ -65,6 +128,16 @@ pub fn run_headless(events: &[WalletEvent]) -> Result<WalletFrameLog, Error> {
         actions: state.actions,
         state: state.view_state,
     })
+}
+
+struct TerminalCleanup;
+
+impl Drop for TerminalCleanup {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let mut stdout = io::stdout();
+        let _ = execute!(stdout, LeaveAlternateScreen);
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

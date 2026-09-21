@@ -38,6 +38,12 @@ fn run() -> Result<(), Error> {
             println!("{}", client.address()?.address);
             Ok(())
         }
+        "tui" => {
+            if args.next().is_some() {
+                return Err(Error::WalletRpc);
+            }
+            xmr_wallet::run_tui(client()?)
+        }
         "prepare-transfer" => {
             let address = args.next().ok_or(Error::WalletRpc)?;
             let amount = args
@@ -67,7 +73,7 @@ fn client() -> Result<WalletRpcClient<UreqWalletRpcTransport>, Error> {
 
 fn print_help() {
     println!(
-        "xmr-wallet {}\n\nUsage:\n  xmr-wallet balance\n  xmr-wallet address\n  xmr-wallet prepare-transfer <address> <amount-atomic>\n\nMONERO_RPC_URL defaults to the loopback wallet RPC. Transfers are prepared with do_not_relay=true; this binary does not spend funds.",
+        "xmr-wallet {}\n\nUsage:\n  xmr-wallet balance\n  xmr-wallet address\n  xmr-wallet tui\n  xmr-wallet prepare-transfer <address> <amount-atomic>\n\nMONERO_RPC_URL defaults to the loopback wallet RPC. The tui command runs the real terminal view and reads balance/address through the configured RPC. Transfers are prepared with do_not_relay=true; this binary does not spend funds.",
         adad_core::version()
     );
 }

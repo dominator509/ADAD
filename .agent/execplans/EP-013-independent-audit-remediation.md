@@ -1,6 +1,6 @@
 ---
 id: EP-013
-status: in-progress
+status: blocked
 depends_on: [EP-012]
 verify: scripts/verify.sh
 ---
@@ -97,6 +97,8 @@ or external-service behavior.
 - `scripts/build-image-inside.sh`
 - `scripts/production-readiness-check.sh`
 - `scripts/build-image.sh`
+- `scripts/dependency-audit.sh`
+- `OPERATIONS.md`
 - `tests/os/run-qemu-leak-battery-inside.sh`
 - `live-build/hooks/0100-adad-hardening.hook.chroot`
 - `crates/agent-coding/src/client.rs`
@@ -130,8 +132,13 @@ or external-service behavior.
 - `crates/xmr-wallet/src/lib.rs`
 - `crates/xmr-wallet/src/main.rs`
 - `crates/xmr-wallet/src/rpc.rs`
+- `crates/xmr-wallet/src/tui/mod.rs`
+- `crates/vps-deploy/src/tui/mod.rs`
 - `ENVIRONMENT.md`
 - `.github/workflows/ci.yml`
+- `.github/dependabot.yml`
+- `.github/workflows/dependency-review.yml`
+- `.github/workflows/codeql.yml`
 
 ## 6. Files to Change
 
@@ -140,8 +147,11 @@ or external-service behavior.
 - `Cargo.lock`
 - `crates/agent-coding/Cargo.toml`
 - `crates/agent-coding/src/client.rs`
+- `crates/agent-coding/src/provider_select.rs`
 - `crates/agent-coding/tests/egress_guard.rs`
 - `crates/agent-coding/tests/failure_provider.rs`
+- `crates/agent-coding/tests/venice.rs`
+- `crates/adad-core/Cargo.toml`
 - `crates/adad-core/src/config.rs`
 - `crates/adad-core/tests/config.rs`
 - `crates/forge/src/vault.rs`
@@ -153,12 +163,16 @@ or external-service behavior.
 - `scripts/verify.sh`
 - `ENVIRONMENT.md`
 - `tests/e2e/run-leak-battery.sh`
+- `tests/os/boot-smoke-inside.sh`
 - `tests/os/run-qemu-leak-battery-inside.sh`
 - `live-build/builder/Dockerfile`
 - `live-build/config/package-lists/adad-base.list.chroot`
 - `live-build/hooks/0100-adad-hardening.hook.chroot`
 - `rust-toolchain.toml`
 - `.github/workflows/ci.yml`
+- `.github/dependabot.yml`
+- `.github/workflows/dependency-review.yml`
+- `.github/workflows/codeql.yml`
 - `scripts/fetch-llama-cpp-runtime.sh`
 - `scripts/min-system-sim.sh`
 - `scripts/min-system-sim-inside.sh`
@@ -173,7 +187,11 @@ or external-service behavior.
 - `CONTRIBUTING.md`
 - `ROLLBACK.md`
 - `SECURITY.md`
+- `OBSERVABILITY.md`
 - `ROADMAP.md`
+- `docs/runbooks/dms-panic.md`
+- `docs/EP-010-rollback-drill.md`
+- `TESTING.md`
 - `crates/agent-coding/src/health.rs`
 - `crates/agent-coding/src/lib.rs`
 - `crates/agent-coding/src/loop.rs`
@@ -198,6 +216,7 @@ or external-service behavior.
 - `crates/git-spoof/src/rewrite.rs`
 - `crates/git-spoof/tests/regression_stable_pseudonym.rs`
 - `crates/leakguard/src/lib.rs`
+- `crates/leakguard/src/egress.rs`
 - `crates/leakguard/src/main.rs`
 - `crates/leakguard/src/dms.rs`
 - `crates/leakguard/Cargo.toml`
@@ -221,6 +240,10 @@ or external-service behavior.
   for fallback endpoints, using normal certificate and hostname validation.
 - A newly constructed fallback client denies requests until an authoritative
   egress state is injected.
+- The shipped agent injects a live `leakguard egress status` observer and
+  accepts only its exact `egress=ready` result for fallback requests.
+- Wallet and VPS TUIs have production crossterm event-loop entrypoints while
+  retaining their headless drivers for deterministic tests.
 - Rendered config strings round-trip all supported basic-string escapes.
 - `cryptsetup` receives the passphrase on stdin and no passphrase file is
   created.
@@ -789,6 +812,32 @@ from provider, network, and I/O failures.
 - Recovery: if the guard reports a path, restore only that path's tracked
   executable mode; do not replace direct execution with a skipped test.
 
+### M59 — Harden public-repository dependency and code-scanning automation
+
+- Goal: make every detected dependency ecosystem receive bounded Dependabot
+  version updates, add fail-closed pull-request dependency review, and add
+  advanced Rust CodeQL analysis with immutable action pins.
+- Files to change: `.github/dependabot.yml`,
+  `.github/workflows/dependency-review.yml`, `.github/workflows/codeql.yml`,
+  `scripts/verify.sh`, `COMMANDS.md`, and this plan.
+- Exact edits expected: configure Cargo, Docker, and GitHub Actions entries
+  against `main` with explicit weekly schedules, modest PR limits, ecosystem
+  prefixes/labels, and minor+patch-only groups; add a `pull_request`-only
+  dependency-review workflow targeting `main` with `contents: read`,
+  `pull-requests: read`, and `fail-on-severity: high`; add a Rust advanced
+  CodeQL workflow with a manual locked Cargo build; pin every action to a
+  verified full commit SHA. Add source guards for the new workflow pins,
+  triggers, permissions, and Dependabot coverage.
+- Validation command: `scripts/verify.sh`, `scripts/lint.sh`, and
+  `git diff --check`.
+- Expected result: local source verification proves the intended automation is
+  present and immutable. GitHub repository settings, hosted workflow runs,
+  and Dependabot alert read-back remain separately reported until the
+  authenticated administration path is available.
+- Recovery: do not weaken action pins, permissions, severity threshold, or
+  ecosystem coverage to make a source check pass; retain the exact failure and
+  stop if remote administration cannot be authenticated.
+
 ## 9. Concrete Steps
 
 1. Add the TLS transport and default-deny regression test.
@@ -799,6 +848,9 @@ from provider, network, and I/O failures.
    outstanding.
 6. Add the active MCP streamable-HTTP transport through the existing
    `agent-coding` boundary without expanding the tool or credential surface.
+7. Add the public-repository dependency review, Dependabot, and advanced Rust
+   CodeQL controls, then distinguish local configuration proof from remote
+   settings and hosted-run evidence.
 
 ## 10. Validation and Acceptance
 
@@ -859,6 +911,9 @@ from provider, network, and I/O failures.
   pinned-toolchain components, and adds guards against both regressions; Forge
   integration tests now distinguish present command names from an unusable
   privileged runtime while preserving the required-mode failure.
+- [x] M59 — Public-repository Dependabot, dependency-review, and advanced Rust
+  CodeQL automation is configured and locally guarded; remote settings and
+  hosted proof remain pending authenticated GitHub administration.
 
 ## 11. Idempotence and Recovery
 
@@ -982,6 +1037,52 @@ repository three-strike rule and preserve the first exact error in this plan.
 - [x] M43 — Required minimum-system inference acceptance enforces the
   SPEC-000 lower bound of 4 tok/s while optional exploratory runs remain
   measurement-only.
+- [x] M44 — The shipped agent fallback runtime obtains authoritative egress
+  status through the existing leakguard process boundary and remains blocked
+  unless the exact `egress=ready` result is returned.
+- [x] M45 — The shipped wallet and VPS commands expose real crossterm terminal
+  event loops and route their visible actions through the existing production
+  RPC/SSH adapters while retaining deterministic headless tests.
+- [x] M46 — CI installs the exact reviewed `cargo-audit` version through the
+  pinned action with fallback disabled, and source verification rejects any
+  workflow that drops either constraint.
+- [x] M47 — The locked `lru` dependency is updated to the RustSec-fixed
+  `0.18.2` release, removing the current `RUSTSEC-2026-0253` warning without
+  changing the existing `ratatui` architecture.
+- [x] M48 — The dependency-audit gate fails closed on every cargo-audit
+  warning, so future unsound, unmaintained, notice, or yanked findings cannot
+  silently produce a green security check.
+- [x] M49 — Operational documentation no longer instructs operators to rely on
+  an unavailable panic/kexec backend or treats the image-only DMS adapter as a
+  production scheduler.
+- [x] M50 — Both CI checkout steps bind pull-request verification to the exact
+  `github.event.pull_request.head.sha` (with the event SHA fallback for pushes
+  and manual runs), and source verification guards that provenance boundary.
+- [x] M51 — Cargo build, check, lint, tests, and hosted vault integration use
+  the committed lockfile with `--locked`, with verifier guards preventing
+  accidental dependency re-resolution.
+- [x] M52 — The dependency-audit environment contract requires the reviewed
+  `cargo-audit` version, security/operations documentation no longer presents
+  unavailable live DMS, panic, or rollback evidence as current, and source
+  verification guards those evidence boundaries.
+- [x] M53 — Testing documentation matches the Linux `--help` plus safe-dispatch
+  smoke implementation, and egress readiness scopes every nftables requirement
+  to the output chain with a cross-chain false-positive regression test.
+- [x] M54 — The on-image nftables smoke extracts the ADAD killswitch output chain
+  before checking normal and interface-drop posture, so unrelated chains cannot
+  satisfy release security markers.
+- [x] M55 — The production daemon-status probe scopes killswitch readiness to the
+  hooked ADAD output chain, with a regression test proving an input-chain drop
+  policy cannot report a permissive output chain as ready.
+- [x] M56 — QEMU boot smoke requires an application reachability marker emitted
+  only after every shipped binary successfully executes its local `--help` path,
+  so hardening markers alone cannot satisfy the boot gate.
+- [x] M57 — QEMU boot smoke rejects unexpected emulator exit statuses while
+  allowing the documented timeout termination for a live image, so markers
+  cannot mask an early boot failure.
+- [x] M58 — Secret-bearing configuration values, provider selections, and
+  provider clients use drop-time zeroization, including temporary bearer
+  headers, instead of retaining API keys in ordinary `String` fields.
 
 ## 13. Surprises & Discoveries
 
@@ -993,6 +1094,16 @@ repository three-strike rule and preserve the first exact error in this plan.
   directory I/O failure; the isolated test passed on immediate rerun and the
   complete package run passed, so no production policy was changed for that
   environment-only event.
+- The requested GitHub connector read confirms `dominator509/ADAD` is public
+  with default branch `main`, but the three new automation files are absent
+  from the remote default branch. The local checkout and remote main are not
+  synchronized, so remote workflow/settings claims cannot be inferred from
+  local source.
+- The required `gh auth status` recon reports an invalid `dominator509` token;
+  the GitHub connector is read-capable here but does not expose the requested
+  security-settings mutations or Dependabot-alert read-back. Remote
+  publication and settings verification therefore stop at the credential
+  boundary.
 
 ## 14. Decision Log
 
@@ -1352,10 +1463,144 @@ repository three-strike rule and preserve the first exact error in this plan.
   the complete host verifier ending in `verify: ok`; it reported
   `inference throughput gate: ok`. No model or image artifact was run or
   modified during this source-only validation.
+- 2026-09-01: Reopened EP-013 for M44 rather than creating another plan. The
+  shipped agent runtime constructed its fallback client without an authoritative
+  live egress source, so a protected tunnel could not be observed by the
+  production path. M44 reuses the existing leakguard process boundary through
+  `leakguard egress status`; command failure, malformed output, and every state
+  other than exact `egress=ready` remain blocked.
+- 2026-09-01: M44 validation passed with `preflight: ok`, `git diff --check`,
+  focused leakguard and agent-coding tests, and the complete host verifier
+  ending in `verify: ok`. Live WireGuard, nftables, and packet validation remain
+  external release evidence.
+- 2026-09-01: Reopened EP-013 for M45 rather than creating another plan. The
+  wallet and VPS TUI modules were still TestBackend-only at their shipped
+  entrypoints even though production RPC and SSH adapters existed. M45 adds
+  crossterm terminal setup, input handling, cleanup, and visible action gates
+  while retaining the headless drivers used by deterministic tests.
+- 2026-09-01: M45 validation passed with focused wallet/VPS tests, shell syntax,
+  `git diff --check`, and the complete host verifier ending in `verify: ok`.
+  Real wallet/VPS credentials, Tor connectivity, and operator-approved
+  provisioning remain intentionally unexecuted.
+- 2026-09-01: Reopened EP-013 for M46 rather than creating another plan. The
+  workflow pinned the installer action but left its default tool resolution and
+  fallback behavior implicit. The exact action metadata supports
+  `cargo-audit@0.22.2` and `fallback: none`; both CI jobs now use those inputs,
+  and the source verifier guards the pair.
+- 2026-09-01: M46 validation passed with `git diff --check` and the complete
+  host verifier ending in `verify: ok`; the verifier reported
+  `cargo-audit input pin: ok`. This pins the CI audit tool input but does not
+  prove a hosted run on the unpublished worktree.
+- 2026-09-01: Reopened EP-013 for M47 rather than creating another plan. The
+  current RustSec database identified `lru 0.18.0` as affected by
+  `RUSTSEC-2026-0253` and identifies `>=0.18.2` as fixed. The existing
+  `ratatui` dependency accepts the compatible locked update to `0.18.2`.
+- 2026-09-01: M47 dependency validation passed after the offline lockfile
+  update; `cargo audit` now reports no vulnerabilities or warnings. Full
+  workspace verification remains the final source gate for this change.
+- 2026-09-01: Reopened EP-013 for M48 rather than creating another plan. The
+  cargo-audit CLI supports `--deny warnings`; the dependency gate now uses it
+  and `scripts/verify.sh` guards that exact fail-closed invocation. No advisory
+  is ignored or downgraded.
+- 2026-09-01: M48 validation passed with the refreshed audit, shell syntax,
+  and the complete verifier ending in `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M49 rather than creating another plan. The
+  operational runbook still described panic `kexec` and an automatic DMS job,
+  while the current source explicitly defers both. It now states the actual
+  image-only DMS boundary and keeps production operation release-gated.
+- 2026-09-01: M49 documentation validation passed through the security check,
+  shell checks, and the complete verifier ending in `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M50 rather than creating another plan. GitHub
+  pull-request workflows otherwise default to a synthetic merge checkout; the
+  source and release checkouts now use the PR head SHA when present and
+  `github.sha` otherwise. The verifier requires the exact expression in both
+  jobs so future artifact evidence cannot silently bind to the merge ref.
+- 2026-09-01: Reopened EP-013 for M51 rather than creating another plan. The
+  lifecycle Cargo commands and the hosted required-vault test could resolve
+  dependencies without explicitly honoring the reviewed lockfile. They now
+  pass `--locked`, and `scripts/verify.sh` guards every changed invocation.
+- 2026-09-01: M51 validation passed with shell syntax, formatting, diff
+  hygiene, and the complete verifier ending in `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M52 rather than creating another plan. The
+  environment table and local install guidance still used a mutable
+  `cargo-audit` latest description, while the DMS/panic and rollback documents
+  could be read as proof of live behavior. M52 pins the documented audit tool,
+  requires that version in the local gate, and labels image-only or historical
+  evidence without changing the existing safety boundary.
+- 2026-09-01: M52 validation passed with shell syntax, formatting, diff
+  hygiene, and the complete verifier ending in `verify: ok`.
+- 2026-09-01: The approved EP-009 Docker builder check/build was attempted after
+  M52. The default invocation lacked Docker named-pipe permission; elevated
+  check and build invocations remained silent and were stopped after bounded
+  waits. No image, device, or release-readiness claim was produced; image
+  execution remains an external host gate.
+- 2026-09-01: Reopened EP-013 for M53 rather than creating another plan. The
+  testing guide still described the superseded version-only smoke check, while
+  egress classification searched the complete nftables dump and could combine
+  a permissive output chain with controls from another chain. The guide now
+  matches the fail-closed Linux smoke implementation, and classification parses
+  the output chain before evaluating firewall, DNS, and discovery controls.
+- 2026-09-01: M53 validation passed with focused egress tests, shell syntax,
+  formatting, `git diff --check`, and the complete verifier ending in
+  `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M54 rather than creating another plan. The
+  on-image leak battery still searched the complete nftables ruleset for policy,
+  interface, and leak-block markers. It now extracts the target table's output
+  chain for both the normal and post-interface-drop checks, and source
+  verification guards those two extraction paths.
+- 2026-09-01: M54 validation passed with shell syntax, formatting,
+  `git diff --check`, and the complete verifier ending in `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M55 rather than creating another plan. The
+  production `SystemDaemonProbe` still searched the complete ADAD nftables table
+  for `policy drop`, so an input-chain policy could falsely report the outbound
+  killswitch as ready. The probe now parses the hooked output chain and requires
+  both the output hook and its drop policy; focused regressions and a verifier
+  guard protect that boundary.
+- 2026-09-01: M55 validation passed with focused `agent-coding` tests, shell
+  syntax, formatting, `git diff --check`, and the complete verifier ending in
+  `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M56 rather than creating another plan. The
+  QEMU boot smoke previously accepted only the killswitch, IPv6, and MAC console
+  markers, which did not prove that any shipped application could execute. The
+  boot hardening service now runs the local help path for all eight embedded
+  binaries before emitting `adad-tools: reachable`, and the boot harness requires
+  that marker. Full workflow and interactive behavior remain covered by the
+  release image battery and external boot evidence.
+- 2026-09-01: M56 validation passed with shell syntax, formatting,
+  `git diff --check`, and the complete verifier ending in `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M57 rather than creating another plan. The
+  boot harness previously ignored QEMU's exit status whenever the console
+  markers were present. It now fails on every unexpected status and accepts
+  only normal exit or the expected `timeout` status 124 for a still-running
+  live image; source verification guards that behavior.
+- 2026-09-01: M57 validation passed with shell syntax, formatting,
+  `git diff --check`, and the complete verifier ending in `verify: ok`.
+- 2026-09-01: Reopened EP-013 for M58 rather than creating another plan. The
+  existing `SecretString` wrapper redacted formatting but did not scrub its
+  heap allocation on drop, and provider selection/client copied API keys into
+  ordinary `String` fields. The existing pinned `zeroize` 1.9.0 dependency is
+  now used directly by `adad-core`; the wrapper is propagated through the
+  provider boundary and transient authorization headers are scrubbed when
+  their request setup scope ends. This reduces in-process secret lifetime but
+  does not claim that OS environment storage or third-party HTTP internals are
+  zeroized.
 - 2026-08-31: After M30, the full isolated-cache verifier completed with
   `verify: ok`; the readiness gate still rejected the worktree because the
   implementation and plan edits were intentionally uncommitted, as required
   for a source-to-artifact change.
+- 2026-09-20: Reopened EP-013 for M59 because the public repository had no
+  Dependabot configuration, dependency-review workflow, or CodeQL workflow.
+  Added Cargo, Docker-builder, and GitHub Actions Dependabot coverage; pinned
+  dependency review to verified action commit `a1d282b36b6f3519aa1f3fc636f609c47dddb294`
+  (`v5.0.0`); added advanced manual Rust CodeQL using verified CodeQL action
+  commit `1c5b675653bb5c22dbe9b12b556ec555138e09fd` (`v4.38.1`); and added
+  source guards for trigger, permission, ecosystem, grouping, and pin drift.
+  `scripts/verify.sh` passed locally after the reachable `rustls` advisory
+  `RUSTSEC-2026-0285` was remediated from `0.23.43` to `0.23.45`.
+- 2026-09-20: M59 is locally complete but the plan is blocked at the required
+  remote boundary: `gh auth status` reports an invalid token, the remote
+  default branch lacks the new files, and no fresh hosted run or security
+  settings read-back can be honestly claimed. No remote write was attempted.
 
 ## 15. Outcomes & Retrospective
 
@@ -1435,3 +1680,62 @@ image-build comparisons remain external evidence.
 M43 makes required inference acceptance enforce the SPEC-000 4 tok/s lower
  bound while preserving optional exploratory timing; representative hardware
  performance remains an external release gate.
+M44 closes the production agent's missing egress-observer wiring through the
+existing leakguard executable boundary and preserves fail-closed fallback
+behavior when the live system cannot prove readiness. M45 connects the wallet
+and VPS shipped commands to real terminal event loops and the already-present
+production transports without weakening their explicit operator gates. The
+workflow now also pins the cargo-audit binary version and disables installer
+fallback resolution, reducing mutable CI inputs. The
+complete host verifier passes, but the remote PR branch still needs the exact
+source publication before GitHub can produce fresh CI evidence; image boot,
+packet-level leak testing, real DMS/panic backends, external-service tests,
+hardware performance, and production-readiness evidence remain open. M47
+updates the vulnerable `lru` dependency to 0.18.2 after checking the current
+RustSec database. M48 makes dependency-audit warnings fatal. M49 reconciles
+the operational documentation with the implemented image-only DMS boundary
+and the deferred panic/kexec capabilities. M50 binds pull-request workflow
+checkouts to the exact PR head SHA. M51 makes Cargo lifecycle checks use the
+committed lockfile. The complete local verifier still passes, including the
+fail-closed audit and lockfile guards; no fresh hosted run has consumed this
+unpublished worktree.
+M52 also makes the documented `cargo-audit` input match the reviewed CI
+version and requires that version locally. Security, observability, DMS/panic,
+and rollback documentation now distinguishes target behavior, image-only
+validation, historical records, and live evidence. The complete host verifier
+continues to pass; image-builder Docker access, current hosted publication,
+and all image/live/operator gates remain open.
+M53 reconciles the testing guide with the current Linux smoke implementation
+and makes egress status classification chain-scoped, preventing controls from a
+different nftables chain from authorizing fallback egress. The complete host
+verifier passes; image execution, live network validation, and current remote
+publication remain open.
+M54 applies the same chain-scoped fail-closed rule to the on-image leak battery,
+covering both the initial and interface-drop ruleset observations. The complete
+host verifier passes; image execution and live packet validation remain open.
+M55 applies the same boundary to the production status monitor, preventing an
+unrelated input-chain policy from making a permissive outbound killswitch look
+ready. The complete host verifier passes; image execution, live packet
+validation, and current remote publication remain open.
+M56 makes the boot smoke gate require actual executable reachability for all
+eight shipped tools before it accepts the hardening markers. The complete host
+verifier passes; QEMU image execution, live packet validation, and current remote
+publication remain open.
+M57 also makes the boot gate reject unexpected QEMU exits instead of allowing
+console markers to mask a failed emulator or guest. The complete host verifier
+passes; QEMU image execution, live packet validation, and current remote
+publication remain open.
+M58 closes the repository-local secret-wrapper lifetime gap by directly using
+the already locked `zeroize` crate and carrying `SecretString` through provider
+selection and client storage. Focused tests and the complete verifier pass;
+environment-variable copies, OS/runtime behavior, and external image/live
+evidence remain outside this source-only proof.
+M59 adds the requested public-repository automation locally: Dependabot covers
+all detected ecosystems with weekly schedules and minor/patch grouping,
+dependency review fails on high-severity PR changes, and advanced Rust CodeQL
+uses a manual locked build with immutable action pins. The dependency gate also
+found and fixed the reachable `rustls` advisory. Local verification passes, but
+remote publication, repository security-setting enablement/read-back,
+Dependabot alert evidence, dependency-review trigger proof, and hosted CodeQL
+runs remain unavailable until GitHub CLI authentication is repaired. The plan
+is therefore blocked rather than presented as remotely hardened.

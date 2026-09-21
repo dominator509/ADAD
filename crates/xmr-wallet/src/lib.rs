@@ -5,4 +5,4 @@ pub use rpc::{
     Balance, PreparedTransfer, UreqWalletRpcTransport, WalletAddress, WalletRpcClient,
     WalletRpcTransport,
 };
-pub use tui::{run_headless, WalletAction, WalletEvent, WalletFrameLog, WalletViewState};
+pub use tui::{run_headless, run_tui, WalletAction, WalletEvent, WalletFrameLog, WalletViewState};

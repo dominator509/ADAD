@@ -10,8 +10,9 @@ ADAD is two things shipped together:
 
 1. **A hardened Debian-Live OS image** (the amnesic substrate) — tmpfs RAM-only
    root, MAC randomization, Tor-by-default networking, WireGuard split-tunnel
-   for APIs, a fail-closed killswitch, LUKS2 persistent vault, panic wipe, and a
-   Dead Man's Switch. Built with `live-build` over a Debian base; where the base
+   for APIs, a fail-closed killswitch, LUKS2 persistent vault, and an image-only
+   Dead Man's Switch adapter. Production panic/device handling remains
+   release-gated. Built with `live-build` over a Debian base; where the base
    already provides a capability (amnesia, MAC randomization, LUKS persistence),
    ADAD configures and hardens it rather than reimplementing it.
 
@@ -106,7 +107,11 @@ contents. Builder and target-image Debian resolution use the pinned
    explicitly configured MCP servers. MCP stdio uses a direct child process;
    remote streamable HTTP uses certificate-verified HTTPS and is denied until
    the authoritative fallback egress state reports the WireGuard path active.
-4. All egress is subject to `leakguard-rs`: local traffic to `llama-server`
+4. For a non-local provider, `agent-coding` queries the fixed
+   `/usr/local/bin/leakguard egress status` process boundary and accepts only
+   the exact `egress=ready` result. Missing, malformed, or non-ready output is
+   blocked.
+5. All egress is subject to `leakguard-rs`: local traffic to `llama-server`
    stays on loopback; any API traffic is forced through the WireGuard interface;
    everything else is Tor or dropped.
 

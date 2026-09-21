@@ -11,10 +11,16 @@
 - Run leak battery: `scripts/test-e2e.sh`.
 
 ## Production operations
-- Boot from USB; unlock the vault; use agent/wallet/VPS/status TUIs.
-- Panic wipe: the panic button triggers a RAM wipe (kexec) — destroys the
-  session immediately. Documented in the DMS/panic runbook.
-- Normal shutdown: scrubs key material from memory; leaves no host trace.
+- The current repository is not release-cleared for production operation; use
+  the workflow only after every gate in `PRODUCTION_READINESS.md` is closed.
+- The current source has no production panic-button or `kexec` backend. Do not
+  rely on a panic wipe for a live session; the image-only DMS adapter and its
+  disposable-file tests are not a substitute.
+- The current DMS command accepts caller-supplied authoritative Tor-NTP time
+  for a regular image file only. Automatic scheduling and production-device
+  destruction remain unimplemented and release-gated.
+- Normal shutdown is intended to scrub key material from memory; zero-host-
+  write and live shutdown evidence remain release gates.
 
 ## Health checks
 - Tor bootstrapped (control-port query).
@@ -44,9 +50,11 @@ killswitch or DMS to "fix" a symptom.
   a real vault off-box without user action.
 
 ## Scheduled jobs
-- Dead Man's Switch timer (Tor-NTP-anchored) checks vault access within
-  `ADAD_DMS_WINDOW_HOURS`; on expiry it wipes the LUKS header. This is the only
-  scheduled destructive job and is safety-critical.
+- No production Dead Man's Switch scheduler is currently shipped. The
+  `leakguard dms evaluate-image` command is an image-only validation adapter;
+  automatic Tor-NTP acquisition and destructive scheduling remain
+  release-gated. Never treat its output as evidence that a live device is
+  protected.
 
 ## Incident triage
 See `.agent/checklists/incident-response.md`. Detect → triage → mitigate →

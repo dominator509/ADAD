@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Verify shell entrypoints
         shell: bash
         run: |
@@ -45,6 +47,9 @@ jobs:
           components: rustfmt, clippy
       - name: Install cargo-audit
         uses: taiki-e/install-action@8e38755317fb11cc24a0cd3b573a64008362d207 # cargo-audit
+        with:
+          tool: cargo-audit@0.22.2
+          fallback: none
       - name: Install vault integration tools
         run: sudo apt-get update && sudo apt-get install -y cryptsetup e2fsprogs util-linux
       - name: Verify source suite
@@ -64,7 +69,7 @@ jobs:
             "PATH=$PATH" \
             "ADAD_REQUIRE_VAULT=$ADAD_REQUIRE_VAULT" \
             "CARGO_TARGET_DIR=/tmp/adad-vault-target" \
-            "$cargo_bin" test -p forge --tests
+            "$cargo_bin" test --locked -p forge --tests
 
   release-image:
     # A release image needs reviewed model/runtime inputs that are deliberately
@@ -82,6 +87,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Install musl build tools
         run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: Install Rust
@@ -91,6 +98,9 @@ jobs:
           components: rustfmt, clippy
       - name: Install cargo-audit
         uses: taiki-e/install-action@8e38755317fb11cc24a0cd3b573a64008362d207 # cargo-audit
+        with:
+          tool: cargo-audit@0.22.2
+          fallback: none
       - name: Install vault integration tools
         run: sudo apt-get update && sudo apt-get install -y cryptsetup e2fsprogs util-linux
       - name: Stage reviewed local model

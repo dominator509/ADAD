@@ -1,25 +1,29 @@
 # SECURITY.md — ADAD
 
-## Security goals
+## Security goals (target state)
 Zero host forensic footprint; absolute network leak prevention (no clearnet, no
 DNS leak, no IPv6, no local-discovery chatter); secrets confined to RAM and the
 LUKS2 vault; believable *randomized* (not impersonated) device identity;
 reliable self-destruct (panic wipe + Dead Man's Switch); pseudonymous,
-metadata-stripped code publishing.
+metadata-stripped code publishing. These are target properties; current
+implementation and release evidence are tracked explicitly below.
 
 ## Threat model summary
 - **Adversary A — host forensics:** someone imaging the host disk after use.
-  Mitigation: tmpfs RAM-only root; no host-disk writes; RAM scrub on shutdown;
-  panic wipe.
+  Target mitigation: tmpfs RAM-only root; no host-disk writes; RAM scrub on
+  shutdown; panic wipe. The current source does not provide a production panic
+  or `kexec` action.
 - **Adversary B — network observer:** local network / ISP / exit-node observer
   correlating traffic. Mitigation: Tor-by-default; WireGuard split-tunnel to an
   XMR-paid VPS for APIs; fail-closed killswitch; IPv6 off; DNS only via Tor.
 - **Adversary C — passive fingerprinter:** correlating device or commit
   metadata. Mitigation: MAC randomization; metafuse timestamp/EXIF/UID
   scrubbing; stable pseudonymous git identity with real metadata stripped.
-- **Adversary D — seizure while unattended:** Mitigation: Dead Man's Switch
-  auto-wipes the LUKS header if the vault is not accessed within the window,
-  using Tor NTP to resist local clock-freeze bypass.
+- **Adversary D — seizure while unattended:** Target mitigation: a Dead Man's
+  Switch auto-wipes the LUKS header if the vault is not accessed within the
+  window, using Tor NTP to resist local clock-freeze bypass. The current source
+  validates this only through an image-file adapter; automatic acquisition and
+  production scheduling remain release gates.
 - **Out of scope:** defeating a network operator's access controls on networks
   the user does not own (explicitly NOT a goal — see PROJECT_BRIEF non-goals).
 

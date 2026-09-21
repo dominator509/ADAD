@@ -1,5 +1,13 @@
+use std::{io, time::Duration};
+
 use adad_core::Error;
+use crossterm::{
+    event::{self, Event, KeyCode, KeyEventKind},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use ratatui::{
+    backend::CrosstermBackend,
     backend::TestBackend,
     style::{Color, Modifier, Style},
     text::{Line, Text},
@@ -7,7 +15,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use crate::{ProvisionHandle, ProvisionTarget};
+use crate::{OpenSshSession, ProvisionHandle, ProvisionTarget};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum VpsEvent {
@@ -38,6 +46,56 @@ pub enum VpsAction {
     Provision,
 }
 
+/// Run the confirmation-gated provisioner through a real terminal event loop.
+///
+/// The caller must have already validated the explicit confirmation flag and
+/// loaded the setup script. Pressing `p` is the second, visible action gate;
+/// Escape or `q` exits without contacting the remote host.
+pub fn run_tui(target: ProvisionTarget, setup_script: String) -> Result<(), Error> {
+    if setup_script.trim().is_empty() {
+        return Err(Error::VpsProvision);
+    }
+
+    enable_raw_mode().map_err(|_| Error::Io)?;
+    let _cleanup = TerminalCleanup;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen).map_err(|_| Error::Io)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).map_err(|_| Error::Io)?;
+    let mut state = VpsState::with_target(target.clone());
+
+    loop {
+        terminal
+            .draw(|frame| render_vps(frame, &state))
+            .map_err(|_| Error::Io)?;
+
+        if !event::poll(Duration::from_millis(250)).map_err(|_| Error::Io)? {
+            continue;
+        }
+        let Event::Key(key) = event::read().map_err(|_| Error::Io)? else {
+            continue;
+        };
+        if key.kind != KeyEventKind::Press {
+            continue;
+        }
+
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => break,
+            KeyCode::Char('p') | KeyCode::Char('P') => {
+                state.handle_key('p');
+                let mut session = OpenSshSession::new();
+                match crate::provision::provision(&mut session, target.clone(), &setup_script) {
+                    Ok(handle) => state.set_handle(&handle),
+                    Err(error) => state.set_error(&error),
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
 pub fn run_headless(events: &[VpsEvent]) -> Result<VpsFrameLog, Error> {
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).map_err(|_| Error::Io)?;
     let mut state = VpsState::default();
@@ -66,6 +124,16 @@ pub fn run_headless(events: &[VpsEvent]) -> Result<VpsFrameLog, Error> {
     })
 }
 
+struct TerminalCleanup;
+
+impl Drop for TerminalCleanup {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let mut stdout = io::stdout();
+        let _ = execute!(stdout, LeaveAlternateScreen);
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct VpsState {
     target: ProvisionTarget,
@@ -88,6 +156,13 @@ impl Default for VpsState {
 }
 
 impl VpsState {
+    fn with_target(target: ProvisionTarget) -> Self {
+        Self {
+            target,
+            ..Self::default()
+        }
+    }
+
     fn handle_key(&mut self, key: char) {
         if matches!(key, 'p' | 'P') {
             self.actions.push(VpsAction::Provision);

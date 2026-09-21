@@ -108,9 +108,15 @@ for path in /sys/class/net/*; do
 done
 [ "$mac_ifaces" -gt 0 ] || exit 1
 
+for tool in forge leakguard agent-coding xmr-wallet vps-deploy persona metafuse git-spoof; do
+  [ -x "/usr/local/bin/$tool" ] || exit 1
+  "/usr/local/bin/$tool" --help >/dev/null 2>&1 || exit 1
+done
+
 printf '%s\n' 'adad-killswitch: armed' > /dev/console || true
 printf '%s\n' 'adad-ipv6: disabled' > /dev/console || true
 printf '%s\n' 'adad-mac: randomized' > /dev/console || true
+printf '%s\n' 'adad-tools: reachable' > /dev/console || true
 EOF
 chmod 0755 /usr/local/sbin/adad-killswitch-boot
 
@@ -232,6 +238,9 @@ console_pass "static-tools"
 
 /usr/local/bin/leakguard status >/dev/null 2>&1 || console_fail "dispatch-leakguard"
 /usr/local/bin/leakguard wireguard status >/dev/null 2>&1 || console_fail "dispatch-wireguard"
+egress_output=$(/usr/local/bin/leakguard egress status 2>/dev/null) || console_fail "dispatch-egress"
+printf '%s\n' "$egress_output" | grep -Eq '^egress=(ready|blocked|unknown)$' || console_fail "dispatch-egress"
+console_pass "egress-status"
 /usr/local/bin/metafuse scrub /etc/hostname >/dev/null 2>&1 || console_fail "dispatch-metafuse"
 /usr/local/bin/git-spoof rewrite-metadata 'ADAD image smoke' >/dev/null 2>&1 || console_fail "dispatch-git-spoof"
 git_smoke_dir=$(mktemp -d)
@@ -272,13 +281,53 @@ console_pass "agent-chat"
 [ "$(sysctl -n net.ipv6.conf.lo.disable_ipv6)" = "1" ] || console_fail "ipv6-lo"
 console_pass "ipv6"
 
+extract_output_chain_from_stdin() {
+  output_chain=""
+  in_table=0
+  in_output=0
+  while IFS= read -r line; do
+    case "$line" in
+      "table inet adad_killswitch {"*)
+        in_table=1
+        continue
+        ;;
+      "table "*)
+        [ "$in_table" -eq 1 ] && in_table=0
+        ;;
+      "}")
+        if [ "$in_table" -eq 1 ] && [ "$in_output" -eq 0 ]; then
+          in_table=0
+        fi
+        ;;
+      "  chain output {"*)
+        [ "$in_table" -eq 1 ] || continue
+        in_output=1
+        continue
+        ;;
+      "  }")
+        [ "$in_output" -eq 1 ] && break
+        ;;
+    esac
+    [ "$in_output" -eq 1 ] && output_chain="${output_chain}${line}
+"
+  done
+}
+
+output_chain_contains() {
+  printf '%s\n' "$output_chain" | grep -Fq -- "$1"
+}
+
 rules=$(nft list ruleset)
 printf '%s\n' "$rules" | grep -q 'table inet adad_killswitch' || console_fail "nft-table"
-printf '%s\n' "$rules" | grep -q 'policy drop' || console_fail "nft-policy"
-printf '%s\n' "$rules" | grep -q 'oifname "wg0" accept' || console_fail "wireguard-allow"
+extract_output_chain_from_stdin <<EOF
+$rules
+EOF
+output_chain_contains 'type filter hook output' || console_fail "nft-output-hook"
+output_chain_contains 'policy drop' || console_fail "nft-policy"
+output_chain_contains 'oifname "wg0" accept' || console_fail "wireguard-allow"
+output_chain_contains 'udp dport { 53, 5353, 1900, 137, 138 } drop' || console_fail "udp-leak-blocks"
+output_chain_contains 'tcp dport { 139, 445 } drop' || console_fail "tcp-discovery-blocks"
 grep -q 'meta skuid "debian-tor" accept' /etc/nftables.d/adad-killswitch.nft || console_fail "tor-allow"
-grep -q 'udp dport { 53, 5353, 1900, 137, 138 } drop' /etc/nftables.d/adad-killswitch.nft || console_fail "udp-leak-blocks"
-grep -q 'tcp dport { 139, 445 } drop' /etc/nftables.d/adad-killswitch.nft || console_fail "tcp-discovery-blocks"
 console_pass "killswitch"
 console_pass "dns-discovery"
 
@@ -319,9 +368,13 @@ ip link set dev "$drop_iface" down 2>/dev/null || console_fail "drop-interface-d
 sleep 1
 rules_after=$(nft list ruleset)
 printf '%s\n' "$rules_after" | grep -q 'table inet adad_killswitch' || console_fail "drop-nft-table"
-printf '%s\n' "$rules_after" | grep -q 'policy drop' || console_fail "drop-nft-policy"
-printf '%s\n' "$rules_after" | grep -q 'oifname "lo" accept' || console_fail "drop-loopback"
-if printf '%s\n' "$rules_after" | grep -q 'oifname "wg0" accept'; then
+extract_output_chain_from_stdin <<EOF
+$rules_after
+EOF
+output_chain_contains 'type filter hook output' || console_fail "drop-nft-output-hook"
+output_chain_contains 'policy drop' || console_fail "drop-nft-policy"
+output_chain_contains 'oifname "lo" accept' || console_fail "drop-loopback"
+if output_chain_contains 'oifname "wg0" accept'; then
   console_fail "drop-wireguard-allow"
 fi
 if timeout 5 ping -4 -c 1 -W 1 1.1.1.1 >/tmp/adad-drop-ping.log 2>&1; then

@@ -96,7 +96,7 @@ impl SystemDaemonProbe {
         {
             Ok(output) if output.status.success() => {
                 let rules = String::from_utf8_lossy(&output.stdout);
-                if rules.contains("policy drop") {
+                if output_chain_has_drop_policy(&rules) {
                     DaemonHealth::Ready
                 } else {
                     DaemonHealth::Down
@@ -126,6 +126,52 @@ impl DaemonProbe for SystemDaemonProbe {
         };
         Ok(health)
     }
+}
+
+fn output_chain_has_drop_policy(rules: &str) -> bool {
+    let Some(body) = chain_body(rules, "output") else {
+        return false;
+    };
+
+    body.contains("type filter hook output") && body.contains("policy drop")
+}
+
+fn chain_body<'a>(rules: &'a str, chain_name: &str) -> Option<&'a str> {
+    let marker = format!("chain {chain_name} {{");
+    let marker_start = rules.find(&marker)?;
+    let body_start = marker_start + marker.len();
+    let bytes = rules.as_bytes();
+    let mut depth = 1usize;
+    let mut in_quote = false;
+    let mut escaped = false;
+
+    for (offset, byte) in bytes[body_start..].iter().copied().enumerate() {
+        if in_quote {
+            if byte == b'\\' && !escaped {
+                escaped = true;
+                continue;
+            }
+            if byte == b'"' && !escaped {
+                in_quote = false;
+            }
+            escaped = false;
+            continue;
+        }
+
+        match byte {
+            b'"' => in_quote = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&rules[body_start..body_start + offset]);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -175,7 +221,10 @@ mod tests {
 
     use adad_core::Error;
 
-    use super::{check_all, Daemon, DaemonHealth, DaemonProbe, SystemDaemonProbe};
+    use super::{
+        check_all, output_chain_has_drop_policy, Daemon, DaemonHealth, DaemonProbe,
+        SystemDaemonProbe,
+    };
 
     #[test]
     fn failed_probe_query_maps_to_unknown() {
@@ -193,6 +242,38 @@ mod tests {
         let _ = probe
             .check(Daemon::Tor)
             .expect("system probe returns typed state");
+    }
+
+    #[test]
+    fn killswitch_status_requires_the_hooked_output_chain_policy() {
+        let rules = r#"
+table inet adad_killswitch {
+  chain input {
+    type filter hook input priority 0; policy drop;
+  }
+  chain output {
+    type filter hook output priority 0; policy accept;
+  }
+}
+"#;
+
+        assert!(!output_chain_has_drop_policy(rules));
+    }
+
+    #[test]
+    fn killswitch_status_accepts_a_drop_policy_on_the_output_hook() {
+        let rules = r#"
+table inet adad_killswitch {
+  chain input {
+    type filter hook input priority 0; policy accept;
+  }
+  chain output {
+    type filter hook output priority 0; policy drop;
+  }
+}
+"#;
+
+        assert!(output_chain_has_drop_policy(rules));
     }
 
     struct MapProbe {

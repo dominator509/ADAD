@@ -27,3 +27,31 @@ Evidence: `scripts/install.sh` on the Windows/Git-Bash host returned `install: h
 Smallest decision needed: Provide or approve a usable Linux builder that already has `live-build`, `squashfs-tools`, and `qemu-system-x86` installed, or explicitly revise COMMANDS.md to allow a containerized EP-009 builder setup path.
 Recommended default: Repair/use the existing Ubuntu WSL2 builder or provide a prebuilt Docker builder image with the required packages installed, then rerun EP-009 from the repository root; keep physical device imaging and production release actions human-only.
 Resolution: User approved installing the required tools/software and executing in whatever environments are necessary to resolve the EP-009 builder risk. The repo now has an explicit containerized builder setup path: `live-build/builder/Dockerfile`, `scripts/build-image-builder.sh`, and `scripts/check-image-builder.sh`. This keeps package installation inside the Docker builder image and preserves the human-only boundary for physical device imaging and production release actions.
+
+## BLK-005 (EP-013, M43) — OPEN
+Blocker: The locally verified remediation cannot obtain fresh GitHub Actions evidence because publishing it would move a real remote branch. The exact attempted push was `git push origin 52cf5e475e454b6a7b9e9f9f6753068decdc4786:refs/heads/codex/ci-green-20260831`; the guarded runner rejected the remote write because explicit authorization for that exact commit and destination was not present.
+Evidence: PR #1 currently points at remote commit `9e85a78b36783ee67a942a6f78506352c7203fab`. Local `main` is at `52cf5e475e454b6a7b9e9f9f6753068decdc4786` and the working tree contains the subsequently verified M44-M53 remediation changes. Local `scripts/verify.sh` exits 0; no hosted run exists for the newer local commits.
+Smallest decision needed: Explicitly authorize publication of the current verified remediation to `dominator509/ADAD` branch `codex/ci-green-20260831`, including committing the current worktree if required, or perform that publication outside this session.
+Recommended default: Have the repository owner perform or explicitly authorize the current branch update, then inspect the resulting CI run before changing any release claim.
+Resolution: (empty — human fills this in)
+
+## BLK-006 (EP-013, M59) — OPEN
+Blocker: The requested GitHub repository security-setting enablement,
+read-back, and publication cannot be completed because the authenticated GitHub
+CLI credential is invalid and the available connector is read-only for these
+administration endpoints.
+Evidence: `rtk gh auth status` reports `The token in default is invalid` for
+the active `dominator509` account. The GitHub connector confirms public
+`dominator509/ADAD` with default branch `main`, but returns 404 for
+`.github/dependabot.yml`, `.github/workflows/dependency-review.yml`, and
+`.github/workflows/codeql.yml` on remote `main`; the connector rejects the
+Dependabot-alert and CodeQL-default-setup endpoints as unavailable. Local
+`scripts/verify.sh` passes, but that does not publish files or enable remote
+settings.
+Smallest decision needed: Re-authenticate `gh` with `repo` and `workflow`
+scopes, then explicitly authorize publication of the verified local changes
+and remote security-setting read-back.
+Recommended default: Re-authenticate first, publish through a reviewable
+branch/PR, enable only settings whose read-back reports the intended state, and
+run a one-line PR diff to prove dependency-review triggering.
+Resolution: (empty — human fills this in)

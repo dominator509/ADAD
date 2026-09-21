@@ -6,5 +6,5 @@ if [ ! -f Cargo.toml ]; then
   echo "ERROR: no Cargo.toml yet. EP-001 must create the workspace first." >&2
   exit 1
 fi
-cargo check --workspace --all-targets --all-features
+cargo check --locked --workspace --all-targets --all-features
 echo "typecheck: ok"

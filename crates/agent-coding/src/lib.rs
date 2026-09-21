@@ -13,7 +13,7 @@ pub use agent_loop::{
 };
 pub use client::{
     ChatFunctionCall, ChatMessage, ChatToolCall, Completion, CompletionToolCall, EgressMode,
-    EgressState, LeakguardEgressState, OpenAiCompatClient, StaticEgressState,
+    EgressState, LeakguardEgressState, OpenAiCompatClient, StaticEgressState, SystemEgressState,
 };
 pub use execution::{
     ExecutionRegistry, ToolDescriptor, ToolSurface, WorkspaceToolExecutor, WORKSPACE_LIST_DIR,

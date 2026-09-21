@@ -5,7 +5,7 @@ use adad_core::{Config, ConfigField, Error, Provider, SecretString};
 use agent_coding::{
     check_all, provider_select, run_agent_chat_with_provider, run_status_monitor_with_provider,
     sanitize_cli_text, serve_stdio_echo_server, AgentLoop, ExecutionRegistry, OpenAiAgentModel,
-    OpenAiCompatClient, ProviderSelection, ProviderWarning, SystemDaemonProbe,
+    OpenAiCompatClient, ProviderSelection, ProviderWarning, SystemDaemonProbe, SystemEgressState,
     WorkspaceToolExecutor, DEFAULT_LOCAL_BASE_URL, DEFAULT_LOCAL_MODEL,
 };
 
@@ -77,7 +77,8 @@ fn runtime_client() -> Result<(OpenAiCompatClient, ProviderSelection), Error> {
         selection.base_url.clone(),
         selection.api_key.clone(),
         selection.model.clone(),
-    );
+    )
+    .with_egress_state(SystemEgressState::new());
     Ok((client, selection))
 }
 

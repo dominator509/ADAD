@@ -13,7 +13,7 @@ fn default_provider_is_local_with_loopback_model_defaults() {
     assert_eq!(selection.provider, Provider::Local);
     assert_eq!(selection.base_url, DEFAULT_LOCAL_BASE_URL);
     assert_eq!(selection.model, DEFAULT_LOCAL_MODEL);
-    assert_eq!(selection.api_key, "");
+    assert_eq!(selection.api_key.expose(), "");
     assert!(selection.warnings.is_empty());
 }
 

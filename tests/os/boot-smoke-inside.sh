@@ -27,9 +27,16 @@ timeout "${ADAD_BOOT_TIMEOUT:-180}" qemu-system-x86_64 \
 status=$?
 set -e
 
+if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+  echo "ERROR: QEMU exited unexpectedly with status $status." >&2
+  tail -n 80 "$log" >&2
+  exit 1
+fi
+
 if grep -q 'adad-killswitch: armed' "$log" \
   && grep -q 'adad-ipv6: disabled' "$log" \
-  && grep -q 'adad-mac: randomized' "$log"; then
+  && grep -q 'adad-mac: randomized' "$log" \
+  && grep -q 'adad-tools: reachable' "$log"; then
   echo "boot smoke: ok"
   exit 0
 fi

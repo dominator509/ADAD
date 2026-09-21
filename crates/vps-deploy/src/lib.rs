@@ -4,4 +4,4 @@ pub mod tui;
 pub use provision::{
     provision, tor_connect, OpenSshSession, ProvisionHandle, ProvisionTarget, SshOutput, SshSession,
 };
-pub use tui::{run_headless, VpsAction, VpsEvent, VpsFrameLog, VpsViewState};
+pub use tui::{run_headless, run_tui, VpsAction, VpsEvent, VpsFrameLog, VpsViewState};

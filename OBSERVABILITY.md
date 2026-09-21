@@ -20,7 +20,9 @@ proven non-secret is redacted by default.
 ## Metrics
 Local, in-memory operational signals surfaced in the TUI (no external metrics
 backend): Tor bootstrap %, WireGuard state, inference tok/s (current session),
-Monero node sync state, git daemon status, killswitch state, DMS time-remaining.
+Monero node sync state, git daemon status, killswitch state, and DMS
+time-remaining when a live DMS source is available. The current system probe
+reports the DMS value as `unknown`; it does not invent a countdown.
 
 ## Traces
 Not applicable (no distributed system). Per-session correlation is a single
@@ -35,12 +37,14 @@ N/A (not a service). The "up" concept is per-boot session state shown in the TUI
 
 ## Dashboards
 The `ratatui` status monitor is the dashboard: one screen showing all daemon
-states, killswitch, DMS countdown, and current provider/model.
+states, killswitch, DMS state, and current provider/model. The DMS field remains
+`unknown` until a production DMS source is connected.
 
 ## Alerts
 Surfaced in the TUI as high-contrast banners: killswitch fired, tunnel down,
-DMS window nearing expiry, vault lock imminent. No external alerting (would leak
-off-box).
+DMS window nearing expiry when a countdown is supplied, and vault lock
+imminent. The current system probe has no live DMS scheduler, so it cannot emit
+a production DMS timing alert. No external alerting (would leak off-box).
 
 ## Service-level indicators
 - Killswitch reaction time on interface drop.

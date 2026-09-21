@@ -37,9 +37,9 @@ but you should be at the root.
 | E2E / leak battery | `scripts/test-e2e.sh` | `e2e tests: ok` |
 | Build (static musl) | `scripts/build.sh` | `build: ok` |
 | Security check | `scripts/security-check.sh` | `security check: ok` |
-| Dependency audit | `scripts/dependency-audit.sh` | `dependency audit: ok` |
+| Dependency audit | `scripts/dependency-audit.sh` | `dependency audit: ok` (all warnings fail) |
 | Smoke test | `scripts/smoke-test.sh` | `smoke test: ok` |
-| Full verify | `scripts/verify.sh` | `verify: ok` |
+| Full verify | `scripts/verify.sh` | `verify: ok` (including CI source/provenance guards) |
 | Production readiness | `scripts/production-readiness-check.sh` | `production readiness: ok` |
 | Build EP-009 image builder | `scripts/build-image-builder.sh` | `image builder: ok` |
 | Check EP-009 image builder | `scripts/check-image-builder.sh` | `image builder check: ok` |
@@ -98,6 +98,10 @@ Host notes:
   only the fixed `wg0` interface name so it remains available during vault
   teardown. Status is read-only and reports `unknown` when Linux observers are
   absent.
+- Query the live fallback authorization boundary with `leakguard egress
+  status`. It prints `egress=ready` only when WireGuard, the drop-policy
+  killswitch, direct-DNS/discovery blocks, and IPv6 disablement are all
+  observed. Any other result keeps provider fallback blocked.
 - Run the fail-closed Linux link monitor in the live image:
   `leakguard monitor`. It observes `ip monitor link` and atomically loads the
   fixed drop-only nftables ruleset on down/deleted events. The image runs it
@@ -119,6 +123,13 @@ Host notes:
   `MONERO_RPC_URL` may target the local wallet RPC or a validated `.onion`
   endpoint; remote requests use the fixed Tor SOCKS5 boundary and never an
   ambient proxy. Transfer preparation remains non-relaying.
+- Run the wallet terminal view with `xmr-wallet tui`; `b` queries balance, `a`
+  queries the address, and `q`/Escape exits. The view uses the same validated
+  RPC transport as the commands above.
+- Run the confirmation-gated VPS terminal view with
+  `vps-deploy tui <host> <user> --script-stdin --confirm < setup.sh`. The
+  explicit `--confirm` flag is required before the view opens, and `p` is the
+  visible action that starts the Tor-bound SSH operation; `q`/Escape exits.
 - Create a local pseudonymous Git commit with `git-spoof commit <message>`
   after staging the intended changes. It requires the persona/vault-provided
   `ADAD_PSEUDONYM`, `ADAD_GIT_AUTHOR_NAME`, and `ADAD_GIT_AUTHOR_EMAIL`, sets
@@ -131,6 +142,14 @@ Host notes:
   and never writes to the source. It requires a Linux kernel FUSE device; a
   live-image mount and unmount test remains a release validation step.
 - Run one crate's tests only: `cargo test -p <crate-name>`
+- Update a locked dependency only after reviewing its advisory and compatible
+  patched release: `cargo update -p <crate-name> --precise <version>`; rerun
+  `scripts/dependency-audit.sh` and `scripts/verify.sh` afterward.
+- Trace whether a Rust dependency is reachable for the shipping target:
+  `cargo tree -i <crate-name> --target x86_64-unknown-linux-musl`.
+- Workspace build, check, lint, and test commands consume the committed
+  `Cargo.lock` with `--locked`; an intentional dependency update must be
+  explicit and followed by the dependency audit.
 - Recover local build space by removing only this checkout's generated target
   tree: `cargo clean`
 - Fetch the historical claw-code diagnostic snapshot:
@@ -161,6 +180,26 @@ Host notes:
   runs live-build inside `adad-ep009-builder:local` and writes `build/adad.img`;
   the container receives mount capability for live-build's chroot `/proc` and
   `/dev/pts` mounts, but no host block devices are bound.)
+
+## GitHub repository security and dependency automation
+
+- Verify the authenticated GitHub CLI session before repository administration:
+  `gh auth status` (requires `repo` and `workflow` scopes).
+- Read the repository visibility and default branch:
+  `gh repo view --json visibility,defaultBranchRef`.
+- Read a public action's verified releases or a repository resource:
+  `gh api <public-github-api-path>`.
+- Enable and read back explicitly requested public-repository security features:
+  `gh api --method PUT repos/<owner>/<repo>/vulnerability-alerts`,
+  `gh api --method PUT repos/<owner>/<repo>/automated-security-fixes`,
+  `gh api --method PUT repos/<owner>/<repo>/private-vulnerability-reporting`,
+  `gh api --method PATCH repos/<owner>/<repo>`, and
+  `gh api repos/<owner>/<repo>/code-scanning/default-setup`.
+- List recent workflow runs and inspect a named run:
+  `gh run list --workflow <name> --limit 20` and
+  `gh run view <run-id> --verbose`.
+- Read open Dependabot alerts:
+  `gh api repos/<owner>/<repo>/dependabot/alerts?state=open&per_page=100`.
 
 ## Database / migrations
 

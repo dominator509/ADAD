@@ -5,7 +5,7 @@
 |---|---|---|
 | rustup + cargo | 1.90.0 | build the Rust workspace |
 | musl target | `x86_64-unknown-linux-musl` | static core binaries |
-| cargo-audit | latest | dependency vuln scan |
+| cargo-audit | 0.22.2 | dependency vuln scan |
 | cryptsetup | current | LUKS2 vault create/unlock/lock lifecycle in EP-003 |
 | util-linux (`losetup`, `mount`, `umount`) | current | loopback devices + filesystem mount cycle in EP-003 |
 | e2fsprogs (`mkfs.ext4`) | current | format the vault filesystem in EP-003 tests |
@@ -74,7 +74,7 @@ shutdown. Never written to host disk, never logged, never committed.
 
 ## Local development setup
 1. Install rustup; `rustup target add x86_64-unknown-linux-musl`.
-2. `cargo install cargo-audit`.
+2. `cargo install cargo-audit --version 0.22.2 --locked`.
 3. Install host tools (`cryptsetup`, `util-linux`, `e2fsprogs`, `coreutils`, `live-build`, `squashfs-tools`, `qemu-system-x86`).
 4. `scripts/preflight.sh` then `scripts/install.sh`.
 
