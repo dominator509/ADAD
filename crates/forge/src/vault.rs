@@ -479,14 +479,26 @@ fn push_optional_secret(
 }
 
 fn escape_toml_string(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\u{0008}', "\\b")
-        .replace('\t', "\\t")
-        .replace('\n', "\\n")
-        .replace('\u{000C}', "\\f")
-        .replace('\r', "\\r")
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\u{0008}' => escaped.push_str("\\b"),
+            '\t' => escaped.push_str("\\t"),
+            '\n' => escaped.push_str("\\n"),
+            '\u{000C}' => escaped.push_str("\\f"),
+            '\r' => escaped.push_str("\\r"),
+            // Any other control character would render raw and corrupt the
+            // TOML document, leaving the vault with an unreadable config.
+            // The reader understands \uXXXX escapes (see Config::from_toml_str).
+            ch if ch.is_control() => {
+                escaped.push_str(&format!("\\u{:04X}", ch as u32));
+            }
+            ch => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn mapped_device_path(mapper_name: &str) -> PathBuf {
@@ -634,6 +646,22 @@ mod tests {
 
         let rendered = render_config(&config);
         let parsed = adad_core::Config::from_toml_str(&rendered).expect("escaped config parses");
+
+        assert_eq!(parsed.model, config.model);
+    }
+
+    #[test]
+    fn config_renderer_escapes_control_characters_instead_of_corrupting_toml() {
+        let mut config = default_config();
+        config.model = Some("esc\x1bnul\x00bell\x07".to_owned());
+
+        let rendered = render_config(&config);
+        assert!(
+            !rendered.chars().any(|ch| ch.is_control() && ch != '\n'),
+            "rendered config must not contain raw control characters"
+        );
+        let parsed =
+            adad_core::Config::from_toml_str(&rendered).expect("control chars stay parseable");
 
         assert_eq!(parsed.model, config.model);
     }
