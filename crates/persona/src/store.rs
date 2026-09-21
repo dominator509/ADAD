@@ -97,6 +97,12 @@ fn parse_string(raw: &str) -> Result<String, Error> {
             let escaped = chars.next().ok_or(Error::Identity)?;
             match escaped {
                 '\\' | '"' => value.push(escaped),
+                'b' => value.push('\u{0008}'),
+                't' => value.push('\t'),
+                'n' => value.push('\n'),
+                'f' => value.push('\u{000C}'),
+                'r' => value.push('\r'),
+                'u' => value.push(parse_unicode_escape(&mut chars)?),
                 _ => return Err(Error::Identity),
             }
         } else {
@@ -106,8 +112,36 @@ fn parse_string(raw: &str) -> Result<String, Error> {
     Ok(value)
 }
 
+fn parse_unicode_escape(chars: &mut impl Iterator<Item = char>) -> Result<char, Error> {
+    let mut value = 0_u32;
+    for _ in 0..4 {
+        let digit = chars.next().and_then(|ch| ch.to_digit(16));
+        value = value
+            .checked_mul(16)
+            .and_then(|value| value.checked_add(digit?))
+            .ok_or(Error::Identity)?;
+    }
+    char::from_u32(value).ok_or(Error::Identity)
+}
+
 fn escape_toml_string(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\u{0008}' => escaped.push_str("\\b"),
+            '\t' => escaped.push_str("\\t"),
+            '\n' => escaped.push_str("\\n"),
+            '\u{000C}' => escaped.push_str("\\f"),
+            '\r' => escaped.push_str("\\r"),
+            ch if ch.is_control() => {
+                escaped.push_str(&format!("\\u{:04X}", ch as u32));
+            }
+            ch => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn io_error(_: std::io::Error) -> Error {
@@ -176,6 +210,44 @@ mod tests {
 
         assert_eq!(PersonaStore::load(&root), Err(adad_core::Error::Identity));
         fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn hostile_values_cannot_inject_identity_keys() {
+        // A value that reached the serializer without constructor validation
+        // must still serialize to a single physical line: no key injection.
+        let hostile = "x\\\"\nforgejo_onion_service = \"evil\"";
+        let line = format!(
+            "pseudonym = \"{}\"",
+            super::escape_toml_string(hostile)
+        );
+        assert!(!line.contains('\n'));
+        assert!(!line.contains('\r'));
+
+        let parsed =
+            super::parse_string(line.split_once('=').expect("key/value").1.trim())
+                .expect("escaped value parses");
+        assert_eq!(parsed, hostile);
+    }
+
+    #[test]
+    fn control_characters_round_trip_through_escape_sequences() {
+        for value in [
+            "tab\there",
+            "line\nbreak",
+            "esc\x1b",
+            "nul\x00",
+            "quote\"back\\slash",
+        ] {
+            let escaped = super::escape_toml_string(value);
+            assert!(
+                !escaped.chars().any(|ch| ch == '\n' || ch == '\r'),
+                "escaped form stays single-line: {escaped:?}"
+            );
+            let parsed =
+                super::parse_string(&format!("\"{escaped}\"")).expect("escaped value parses");
+            assert_eq!(parsed, value);
+        }
     }
 
     fn temp_root() -> std::path::PathBuf {
