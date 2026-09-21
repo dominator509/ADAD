@@ -47,7 +47,7 @@ impl Vault {
         let loop_device = runtime.attach_loop_device(path)?;
         let mapper_name = mapper_name_for(path);
         let mapped_device = mapped_device_path(&mapper_name);
-        let mount_dir = unique_mount_dir(&mapper_name);
+        let mount_dir = prepare_mount_dir(&mapper_name)?;
 
         if let Err(err) = runtime.luks_format(&loop_device) {
             let _ = runtime.detach_loop(&loop_device);
@@ -62,7 +62,6 @@ impl Vault {
             let _ = runtime.detach_loop(&loop_device);
             return Err(err);
         }
-        fs::create_dir_all(&mount_dir).map_err(io_error)?;
         if let Err(err) = runtime.mount(&mapped_device, &mount_dir) {
             let _ = runtime.close_mapping(&mapper_name);
             let _ = runtime.detach_loop(&loop_device);
@@ -90,13 +89,12 @@ impl Vault {
         let loop_device = runtime.attach_loop_device(path)?;
         let mapper_name = mapper_name_for(path);
         let mapped_device = mapped_device_path(&mapper_name);
-        let mount_dir = unique_mount_dir(&mapper_name);
+        let mount_dir = prepare_mount_dir(&mapper_name)?;
 
         if let Err(err) = runtime.open_mapping(&loop_device, &mapper_name) {
             let _ = runtime.detach_loop(&loop_device);
             return Err(err);
         }
-        fs::create_dir_all(&mount_dir).map_err(io_error)?;
         if let Err(err) = runtime.mount(&mapped_device, &mount_dir) {
             let _ = runtime.close_mapping(&mapper_name);
             let _ = runtime.detach_loop(&loop_device);
@@ -188,7 +186,11 @@ impl Unsealed {
     }
 
     pub fn seal(mut self) -> Result<(), Error> {
-        if self.mount_dir.exists() {
+        // Only tear down a mount point we still own: if the directory was
+        // swapped for a symlink, unmounting and recursively deleting through
+        // it could destroy an unrelated tree. The mapping and loop device are
+        // still released below via their own names.
+        if mount_dir_is_plain_dir(&self.mount_dir) {
             self.runtime.unmount(&self.mount_dir)?;
             fs::remove_dir_all(&self.mount_dir).map_err(io_error)?;
         }
@@ -223,11 +225,13 @@ impl Unsealed {
 
 impl Drop for Unsealed {
     fn drop(&mut self) {
-        if !self.sealed && self.mount_dir.exists() {
-            let _ = self.runtime.unmount(&self.mount_dir);
+        if !self.sealed {
+            if mount_dir_is_plain_dir(&self.mount_dir) {
+                let _ = self.runtime.unmount(&self.mount_dir);
+                let _ = fs::remove_dir_all(&self.mount_dir);
+            }
             let _ = self.runtime.close_mapping(&self.mapper_name);
             let _ = self.runtime.detach_loop(&self.loop_device);
-            let _ = fs::remove_dir_all(&self.mount_dir);
         }
     }
 }
@@ -295,13 +299,9 @@ impl VaultRuntime {
     }
 
     fn mount(&self, mapped_device: &Path, mount_dir: &Path) -> Result<(), Error> {
-        self.run(
-            Command::new("mount")
-                .arg("-t")
-                .arg("ext4")
-                .arg(mapped_device)
-                .arg(mount_dir),
-        )
+        let mut command = Command::new("mount");
+        command.args(mount_args(mapped_device, mount_dir));
+        self.run(&mut command)
     }
 
     fn unmount(&self, mount_dir: &Path) -> Result<(), Error> {
@@ -477,6 +477,46 @@ fn unique_mount_dir(mapper_name: &str) -> PathBuf {
     env::temp_dir().join(format!("{mapper_name}-mount-{}", unique_suffix()))
 }
 
+/// Create the vault mount point exclusively with owner-only permissions.
+///
+/// `create_dir` (not `create_dir_all`) fails if the path already exists, so a
+/// pre-planted symlink in the world-writable temp dir cannot redirect the
+/// mount or the later teardown. The canonicalized path is returned so later
+/// containment checks compare against the real location.
+fn prepare_mount_dir(mapper_name: &str) -> Result<PathBuf, Error> {
+    let mount_dir = unique_mount_dir(mapper_name);
+    fs::create_dir(&mount_dir).map_err(|_| Error::Io)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&mount_dir, fs::Permissions::from_mode(0o700))
+            .map_err(|_| Error::Io)?;
+    }
+    fs::canonicalize(&mount_dir).map_err(|_| Error::Io)
+}
+
+/// Mount arguments for the vault filesystem. `nosuid,nodev` keeps a crafted
+/// vault image from smuggling setuid binaries or device nodes onto the host.
+fn mount_args(mapped_device: &Path, mount_dir: &Path) -> Vec<std::ffi::OsString> {
+    vec![
+        "-t".into(),
+        "ext4".into(),
+        "-o".into(),
+        "nosuid,nodev".into(),
+        mapped_device.into(),
+        mount_dir.into(),
+    ]
+}
+
+/// True only when `path` is a real directory, not a symlink. Teardown must
+/// never follow a swapped-in symlink with a recursive delete.
+fn mount_dir_is_plain_dir(path: &Path) -> bool {
+    matches!(
+        fs::symlink_metadata(path),
+        Ok(metadata) if metadata.file_type().is_dir()
+    )
+}
+
 fn backup_path_for(path: &Path) -> PathBuf {
     let mut backup_name = path
         .file_name()
@@ -564,6 +604,62 @@ mod tests {
         let parsed = adad_core::Config::from_toml_str(&rendered).expect("escaped config parses");
 
         assert_eq!(parsed.model, config.model);
+    }
+
+    #[test]
+    fn mount_args_disable_setuid_and_device_nodes() {
+        use super::mount_args;
+
+        let args = mount_args(Path::new("/dev/mapper/adad-x"), Path::new("/tmp/mnt"));
+        let rendered: Vec<String> = args
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+
+        let options_index = rendered
+            .iter()
+            .position(|arg| arg == "-o")
+            .expect("mount carries -o");
+        assert_eq!(rendered[options_index + 1], "nosuid,nodev");
+        assert!(rendered.contains(&"/dev/mapper/adad-x".to_owned()));
+    }
+
+    #[test]
+    fn prepared_mount_dir_is_exclusive_and_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        use super::{mount_dir_is_plain_dir, prepare_mount_dir};
+
+        let first = prepare_mount_dir("adad-test-mount").expect("mount dir prepares");
+        let metadata = fs::symlink_metadata(&first).expect("mount dir exists");
+        assert!(metadata.file_type().is_dir());
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o700);
+        assert!(mount_dir_is_plain_dir(&first));
+
+        fs::remove_dir(&first).expect("fixture cleanup");
+    }
+
+    #[test]
+    fn mount_dir_guard_rejects_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        use super::mount_dir_is_plain_dir;
+
+        let root = std::env::temp_dir().join(format!(
+            "adad-forge-guard-{}",
+            super::unique_suffix()
+        ));
+        fs::create_dir(&root).expect("fixture root creates");
+        let target = root.join("real");
+        fs::create_dir(&target).expect("target creates");
+        let link = root.join("link");
+        symlink(&target, &link).expect("symlink creates");
+
+        assert!(mount_dir_is_plain_dir(&target));
+        assert!(!mount_dir_is_plain_dir(&link));
+        assert!(!mount_dir_is_plain_dir(&root.join("missing")));
+
+        fs::remove_dir_all(&root).expect("fixture cleanup");
     }
 
     #[test]
