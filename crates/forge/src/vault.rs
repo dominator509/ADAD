@@ -514,7 +514,13 @@ fn mapper_name_for(path: &Path) -> String {
         .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
         .collect::<String>();
 
-    format!("adad-{stem}-{}", std::process::id())
+    // The mapper name must be unique per open mapping, not just per process.
+    // Integration tests (and any real caller) can hold several vaults open
+    // concurrently inside one process; a process-scoped name makes the second
+    // `cryptsetup open` fail with "Device ... already exists". Each open/close
+    // cycle is self-contained in its `Unsealed` handle, so a per-call unique
+    // suffix is safe: no caller re-opens a mapping by a previously used name.
+    format!("adad-{stem}-{}-{}", std::process::id(), unique_suffix())
 }
 
 fn unique_mount_dir(mapper_name: &str) -> PathBuf {
