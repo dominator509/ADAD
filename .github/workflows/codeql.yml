@@ -41,10 +41,11 @@ jobs:
         uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           languages: ${{ matrix.language }}
-          build-mode: manual
-
-      - name: Build Rust for CodeQL
-        run: cargo build --locked --workspace
+          # Rust is a source-only language for CodeQL: the CLI rejects
+          # `manual` build mode ("Rust does not support the manual build
+          # mode... use none instead"), so analysis runs directly on source
+          # with no traced build step.
+          build-mode: none
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1

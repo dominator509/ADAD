@@ -424,14 +424,14 @@ grep -Fx '  security-events: write' .github/workflows/codeql.yml >/dev/null || {
   echo "ERROR: CodeQL cannot publish code-scanning results." >&2
   exit 1
 }
-grep -Fx '          build-mode: manual' .github/workflows/codeql.yml >/dev/null || {
-  echo "ERROR: Rust CodeQL analysis is not using its required manual build mode." >&2
+grep -Fx '          build-mode: none' .github/workflows/codeql.yml >/dev/null || {
+  echo "ERROR: Rust CodeQL analysis is not using the source-only (none) build mode required by the CodeQL CLI." >&2
   exit 1
 }
-grep -Fx '        run: cargo build --locked --workspace' .github/workflows/codeql.yml >/dev/null || {
-  echo "ERROR: CodeQL Rust build is not locked to Cargo.lock." >&2
-  exit 1
-}
+# With `build-mode: none` CodeQL analyzes Rust source directly, so codeql.yml
+# has no build step for CodeQL to trace and there is no CodeQL build command
+# to lock to Cargo.lock. The workspace build itself stays locked via the
+# cargo lockfile checks above.
 for codeql_action_pin in \
   '        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4' \
   '        uses: dtolnay/rust-toolchain@06e5a564a0556e338780f5aecf2e7dcc9b267f07 # 1.90.0' \
