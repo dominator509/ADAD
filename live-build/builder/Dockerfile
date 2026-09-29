@@ -1,6 +1,6 @@
 # rust:1.90.0-bookworm, linux/amd64 manifest digest. Keep the builder input
 # immutable; update this digest only with a deliberate toolchain review.
-FROM --platform=linux/amd64 rust@sha256:3f6e6f8d8725a65a2db964bb828850f888d430c68784d661f753144e5d787207
+FROM --platform=linux/amd64 rust@sha256:a8a5f0a1e5fe7dfe1d352591e4a1c7dd2c08fd70475cae872cf3458ba0df0546
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV DEBIAN_SNAPSHOT=20260801T000000Z
